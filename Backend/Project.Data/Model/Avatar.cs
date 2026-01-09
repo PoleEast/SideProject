@@ -1,4 +1,6 @@
-﻿namespace AssetTracker.Model
+﻿using Project.Shared.Types;
+
+namespace Project.Data.Model
 {
     public class Avatar
     {

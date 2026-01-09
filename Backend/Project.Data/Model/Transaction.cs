@@ -1,4 +1,6 @@
-﻿namespace AssetTracker.Model
+﻿using Project.Shared.Types;
+
+namespace Project.Data.Model
 {
     public class Transaction
     {
@@ -6,6 +8,7 @@
         public int UserId { get; set; }
         public string Exchange { get; set; } = string.Empty;
         public string StockCode { get; set; } = string.Empty;
+        public DateTime Date { get; set; }
         public TransactionType Type { get; set; }
         public int Quantity { get; set; }
         public decimal Price { get; set; }

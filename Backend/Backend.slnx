@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="AssetTracker/AssetTracker.csproj" />
+  <Project Path="Project.Data/Project.Data.csproj" Id="6ce4a5ce-5898-4573-8291-71363624350c" />
+  <Project Path="Project.Shared/Project.Shared.csproj" Id="e8ee2be6-ddcc-4d55-8cac-1bfe5db4a366" />
 </Solution>

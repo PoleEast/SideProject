@@ -1,7 +1,7 @@
-﻿using AssetTracker.Model;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
+using Project.Data.Model;
 
-namespace AssetTracker
+namespace Project.Data
 {
     public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
     {

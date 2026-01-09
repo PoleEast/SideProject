@@ -1,4 +1,4 @@
-﻿namespace AssetTracker.Model
+﻿namespace Project.Data.Model
 {
     public class User
     {

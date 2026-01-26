@@ -10,24 +10,24 @@ namespace AssetTracker.Services
 {
     public class StockService(IStockApiClients stockApiClients, ApplicationDbContext dbContext)
     {
-        public async Task<Result<StockPriceHistory>> GetStockPrice(StockMarketType market, string code, DateTime date)
+        public async Task<Result<StockPriceHistory>> GetStockPriceAsync(StockMarketType market, string code, DateTime date)
         {
             var normalizedCode = code.Trim().ToUpperInvariant();
 
-            var stockInfo = await stockApiClients.GetStockInfo(market, normalizedCode);
+            var stockInfo = await stockApiClients.GetStockInfoAsync(market, normalizedCode);
             if (!stockInfo.IsSuccess || stockInfo.Value == null)
             {
                 return Result<StockPriceHistory>.Failure(ResultCode.BusinessRuleViolation, "不支援此檔股票");
             }
 
-            var dbResult = await GetStockPriceFromDB(stockInfo.Value.Exchange, normalizedCode, date);
+            var dbResult = await GetStockPriceFromDBAsync(stockInfo.Value.Exchange, normalizedCode, date);
 
             if (dbResult.IsSuccess)
             {
                 return dbResult;
             }
 
-            var apiResult = await stockApiClients.GetStockPrice(market, normalizedCode, date, date);
+            var apiResult = await stockApiClients.GetStockPriceAsync(market, normalizedCode, date, date);
 
             if (!apiResult.IsSuccess || apiResult.Value == null)
             {
@@ -46,7 +46,7 @@ namespace AssetTracker.Services
             return Result<StockPriceHistory>.Success(stockPriceHistory);
         }
 
-        private async Task<Result<StockPriceHistory>> GetStockPriceFromDB(string exchange, string code, DateTime date)
+        private async Task<Result<StockPriceHistory>> GetStockPriceFromDBAsync(string exchange, string code, DateTime date)
         {
             var stockPriceHistory = await dbContext.StockPriceHistories.FirstOrDefaultAsync(t => t.Exchange == exchange && t.Code == code && t.Date.Date == date.Date);
 

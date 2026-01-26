@@ -11,9 +11,9 @@ namespace AssetTracker.ApiClients
 {
     public class ExchangeRateApiClient(HttpClient httpClient, [FromKeyedServices("ApiResponse")] JsonSerializerOptions options) : IExchangeRateApiClient
     {
-        public async Task<Result<ExchangeRateHistory>> GetExchangeRateToUSD(CurrencyType baseCode)
+        public async Task<Result<ExchangeRateHistory>> GetExchangeRateToUSDAsync(CurrencyType baseCode)
         {
-            var pairResponse = await FetchPairConversion(baseCode, CurrencyType.USD);
+            var pairResponse = await FetchPairConversionAsync(baseCode, CurrencyType.USD);
 
             if (!pairResponse.IsSuccess || pairResponse.Value == null) return Result<ExchangeRateHistory>.Failure(pairResponse.Code, pairResponse.Message);
 
@@ -22,7 +22,7 @@ namespace AssetTracker.ApiClients
             return Result<ExchangeRateHistory>.Success(exchangeRateHistory);
         }
 
-        private async Task<Result<PairResponse>> FetchPairConversion(CurrencyType baseCode, CurrencyType targetCode)
+        private async Task<Result<PairResponse>> FetchPairConversionAsync(CurrencyType baseCode, CurrencyType targetCode)
         {
             var url = $"pair/{baseCode}/{targetCode}";
 

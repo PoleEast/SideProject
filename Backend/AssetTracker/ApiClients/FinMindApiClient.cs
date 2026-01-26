@@ -24,9 +24,9 @@ namespace AssetTracker.ApiClients
             _ => null
         };
 
-        public async Task<Result<StockInfo>> GetStockInfo(StockMarketType market, string code)
+        public async Task<Result<StockInfo>> GetStockInfoAsync(StockMarketType market, string code)
         {
-            var stockInfo = await FetchStockInfo(market, code);
+            var stockInfo = await FetchStockInfoAsync(market, code);
             if (stockInfo == null)
             {
                 return Result<StockInfo>.Failure(ResultCode.BusinessRuleViolation, "不支援此檔股票");
@@ -35,16 +35,16 @@ namespace AssetTracker.ApiClients
             return Result<StockInfo>.Success(stockInfo);
         }
 
-        public async Task<Result<List<StockPriceHistory>>> GetStockPrice(StockMarketType market, string code, DateTime startDate, DateTime endDate)
+        public async Task<Result<List<StockPriceHistory>>> GetStockPriceAsync(StockMarketType market, string code, DateTime startDate, DateTime endDate)
         {
-            var stockInfo = await FetchStockInfo(market, code);
+            var stockInfo = await FetchStockInfoAsync(market, code);
 
             if (stockInfo == null)
             {
                 return Result<List<StockPriceHistory>>.Failure(ResultCode.BusinessRuleViolation, "不支援此檔股票");
             }
 
-            var stockPrice = await FetchStockPrice(market, code, startDate, endDate);
+            var stockPrice = await FetchStockPriceAsync(market, code, startDate, endDate);
 
             if (stockPrice.Count < 1)
             {
@@ -69,7 +69,7 @@ namespace AssetTracker.ApiClients
         /// <param name="market">股票市場類型（如台股、美股等）</param>
         /// <param name="code">股票代碼</param>
         /// <returns>API 回傳資料中第一筆的股票名稱；若查無資料則回傳 null</returns>
-        private async Task<StockInfo?> FetchStockInfo(StockMarketType market, string code)
+        private async Task<StockInfo?> FetchStockInfoAsync(StockMarketType market, string code)
         {
             var queryParams = new Dictionary<string, string?>
             {
@@ -89,7 +89,7 @@ namespace AssetTracker.ApiClients
             };
         }
 
-        private async Task<List<StockPrice>> FetchStockPrice(StockMarketType market, string code, DateTime startDate, DateTime endDate)
+        private async Task<List<StockPrice>> FetchStockPriceAsync(StockMarketType market, string code, DateTime startDate, DateTime endDate)
         {
             var queryParams = new Dictionary<string, string?>()
             {

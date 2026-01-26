@@ -87,6 +87,6 @@ namespace AssetTracker.Services
             return Result.Success();
         }
 
-        private async Task<bool> IsUserIdExists(int userId) => await dbContext.Users.AnyAsync(u => u.Id == userId);
+        private async Task<bool> IsUserIdExistsAsync(int userId) => await dbContext.Users.AnyAsync(u => u.Id == userId);
     }
 }

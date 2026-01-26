@@ -6,6 +6,6 @@ namespace AssetTracker.ApiClients
 {
     public interface IExchangeRateApiClient
     {
-        public Task<Result<ExchangeRateHistory>> GetExchangeRateToUSD(CurrencyType baseCode);
+        public Task<Result<ExchangeRateHistory>> GetExchangeRateToUSDAsync(CurrencyType baseCode);
     }
 }

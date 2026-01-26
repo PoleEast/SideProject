@@ -14,7 +14,7 @@ namespace AssetTracker.Controllers
         [HttpGet("{currencyType}")]
         public async Task<ActionResult> GetExchangeRate(CurrencyType currencyType)
         {
-            var result = await exchangeRateService.GetExchangeRate(currencyType);
+            var result = await exchangeRateService.GetExchangeRateAsync(currencyType);
 
             return result.Code switch
             {

@@ -25,7 +25,7 @@ namespace AssetTracker.Controllers
         [HttpGet]
         public async Task<ActionResult<StockPriceHistory>> GetStockPrice(StockMarketType stockMarketType, string code, DateTime date)
         {
-            var result = await stockService.GetStockPrice(stockMarketType, code, date);
+            var result = await stockService.GetStockPriceAsync(stockMarketType, code, date);
 
             return result.Code switch
             {

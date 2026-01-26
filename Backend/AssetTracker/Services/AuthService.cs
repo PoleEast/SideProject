@@ -52,7 +52,7 @@ namespace AssetTracker.Services
             return Result<User>.Success(user);
         }
 
-        public async Task<bool> IsAccountExists(string account) => await dbContext.Users.AnyAsync(u => u.Account == account);
+        public async Task<bool> IsAccountExistsAsync(string account) => await dbContext.Users.AnyAsync(u => u.Account == account);
 
         private static string HashPassword(string password) => BCrypt.Net.BCrypt.HashPassword(password);
 

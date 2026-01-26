@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
+  <Project Path="AssetTracker.Tests/AssetTracker.Tests.csproj" Id="fed69c1d-8a5a-4c85-9fee-529df158faa1" />
   <Project Path="AssetTracker/AssetTracker.csproj" />
   <Project Path="Project.Data/Project.Data.csproj" Id="6ce4a5ce-5898-4573-8291-71363624350c" />
   <Project Path="Project.Shared/Project.Shared.csproj" Id="e8ee2be6-ddcc-4d55-8cac-1bfe5db4a366" />

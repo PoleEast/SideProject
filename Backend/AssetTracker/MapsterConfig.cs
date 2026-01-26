@@ -1,0 +1,107 @@
+﻿using Azure;
+using Mapster;
+using Project.Data.Model;
+using Project.Shared.DTOs.ExchangeRate;
+using Project.Shared.DTOs.FinMind.StockInfo;
+using Project.Shared.DTOs.FinMind.StockPrice;
+using Project.Shared.DTOs.Stock;
+
+namespace AssetTracker
+{
+    public class MapsterConfig
+    {
+        public static void SettingGlobalConfig()
+        {
+            //強制所有目標屬性有來源
+            TypeAdapterConfig.GlobalSettings.RequireDestinationMemberSource = true;
+
+            #region To Entity
+
+            TypeAdapterConfig<StockPrice, StockPriceHistory>.NewConfig()
+                .Map(d => d.OpeningPrice, s => s.Open)
+                .Map(d => d.ClosingPrice, s => s.Close)
+                .Map(d => d.High, s => s.Max)
+                .Map(d => d.Low, s => s.Min)
+                .Map(d => d.Volume, s => s.TradingVolume)
+                .Map(d => d.Code, s => s.StockId)
+                .Map(d => d.Date, s => s.Date)
+                .Ignore(d => d.Id)
+                .Ignore(d => d.Exchange)
+                .Ignore(d => d.Name)
+                .Ignore(d => d.Currency)
+                .Ignore(d => d.CreatedAt)
+                .Ignore(d => d.UpdatedAt!)
+                .Ignore(d => d.DeletedAt!);
+
+            TypeAdapterConfig<PairResponse, ExchangeRateHistory>.NewConfig()
+                .Map(d => d.CurrencyCode, s => s.BaseCode)
+                .Map(d => d.ToUSDRate, s => s.ConversionRate)
+                .Map(d => d.Date, s => DateTimeOffset.FromUnixTimeSeconds(s.TimeLastUpdateUnix).UtcDateTime.Date)
+                .Ignore(d => d.Id)
+                .Ignore(d => d.CreatedAt)
+                .Ignore(d => d.UpdatedAt!)
+                .Ignore(d => d.DeletedAt!);
+
+            #endregion
+
+            #region To DTO
+
+            #region StockInfo
+            TypeAdapterConfig<JapanStockInfo, StockInfo>.NewConfig()
+                .Map(d => d.Code, s => s.StockId)
+                .Map(d => d.Name, s => s.StockName)
+                .Map(d => d.IndustryCategory, s => s.Sector)
+                .Map(d => d.Exchange, s => s.Exchange);
+
+            TypeAdapterConfig<TaiwanStockInfo, StockInfo>.NewConfig()
+                .Map(d => d.Code, s => s.StockId)
+                .Map(d => d.Name, s => s.StockName)
+                .Map(d => d.IndustryCategory, s => s.IndustryCategory)
+                .Map(d => d.Exchange, s => s.Type);
+
+            TypeAdapterConfig<USStockInfo, StockInfo>.NewConfig()
+                .Map(d => d.Code, s => s.StockId)
+                .Map(d => d.Name, s => s.StockName)
+                .Map(d => d.IndustryCategory, s => s.Subsector)
+                .Map(d => d.Exchange, _ => "");
+
+            #endregion
+
+            #region StockPrice
+
+            TypeAdapterConfig<TaiwanStockPrice, StockPrice>.NewConfig()
+                .Map(d => d.Date, s => s.Date)
+                .Map(d => d.StockId, s => s.StockId)
+                .Map(d => d.TradingVolume, s => s.TradingVolume)
+                .Map(d => d.Open, s => s.Open)
+                .Map(d => d.Max, s => s.Max)
+                .Map(d => d.Min, s => s.Min)
+                .Map(d => d.Close, s => s.Close);
+
+            TypeAdapterConfig<JapanStockPrice, StockPrice>.NewConfig()
+                .Map(d => d.Date, s => s.Date)
+                .Map(d => d.StockId, s => s.StockId)
+                .Map(d => d.TradingVolume, s => s.Volume)
+                .Map(d => d.Open, s => s.Open)
+                .Map(d => d.Max, s => s.High)
+                .Map(d => d.Min, s => s.Low)
+                .Map(d => d.Close, s => s.Close);
+
+            TypeAdapterConfig<USStockPrice, StockPrice>.NewConfig()
+                .Map(d => d.Date, s => s.Date)
+                .Map(d => d.StockId, s => s.StockId)
+                .Map(d => d.TradingVolume, s => s.Volume)
+                .Map(d => d.Open, s => s.Open)
+                .Map(d => d.Max, s => s.High)
+                .Map(d => d.Min, s => s.Low)
+                .Map(d => d.Close, s => s.Close);
+
+            #endregion
+
+            #endregion
+
+            //啟動時驗證所有配置
+            TypeAdapterConfig.GlobalSettings.Compile();
+        }
+    }
+}

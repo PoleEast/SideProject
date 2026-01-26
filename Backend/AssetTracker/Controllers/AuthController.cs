@@ -1,6 +1,7 @@
 ﻿using AssetTracker.Services;
 using Microsoft.AspNetCore.Mvc;
 using Project.Shared.DTOs.Auth;
+using Project.Shared.Types;
 using System.Net;
 
 namespace AssetTracker.Controllers
@@ -14,15 +15,15 @@ namespace AssetTracker.Controllers
         {
             var result = await authService.RegisterAsync(request);
 
-            if (result.Code == HttpStatusCode.OK && result.Result != null)
+            if (result.IsSuccess && result.Value != null)
             {
-                var token = jwtService.GenerateToken(result.Result);
+                var token = jwtService.GenerateToken(result.Value);
                 return Ok(new { token });
             }
 
             return result.Code switch
             {
-                HttpStatusCode.Conflict => Conflict(),
+                ResultCode.Conflict => Conflict(result.Message),
                 _ => StatusCode((int)result.Code)
             };
         }
@@ -32,15 +33,15 @@ namespace AssetTracker.Controllers
         {
             var result = await authService.LoginAsync(request);
 
-            if (result.Code == HttpStatusCode.OK && result.Result != null)
+            if (result.IsSuccess && result.Value != null)
             {
-                var token = jwtService.GenerateToken(result.Result);
+                var token = jwtService.GenerateToken(result.Value);
                 return Ok(new { token });
             }
 
             return result.Code switch
             {
-                HttpStatusCode.Conflict => Conflict(),
+                ResultCode.Conflict => Conflict(result.Message),
                 _ => StatusCode((int)result.Code)
             };
         }

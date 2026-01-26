@@ -4,21 +4,19 @@ using Project.Data;
 using Project.Data.Model;
 using Project.Shared.DTOs;
 using Project.Shared.DTOs.Auth;
+using Project.Shared.Types;
 using System.Net;
 
 namespace AssetTracker.Services
 {
     public class AuthService(ApplicationDbContext dbContext)
     {
-        public async Task<ServiceResult<User>> RegisterAsync(RegisterRequest request)
+        public async Task<Result<User>> RegisterAsync(RegisterRequest request)
         {
             bool exists = await IsAccountExists(request.Account);
             if (exists)
             {
-                return new ServiceResult<User>
-                {
-                    Code = HttpStatusCode.Conflict
-                };
+                return Result<User>.Failure(ResultCode.Conflict, "此帳號已被註冊");
             }
 
             string passwordHash = HashPassword(request.Password);
@@ -29,31 +27,21 @@ namespace AssetTracker.Services
             dbContext.Add(user);
             await dbContext.SaveChangesAsync();
 
-            return new ServiceResult<User>
-            {
-                Code = HttpStatusCode.OK,
-                Result = user
-            };
+            return Result<User>.Success(user);
         }
 
-        public async Task<ServiceResult<User>> LoginAsync(LoginRequest request)
+        public async Task<Result<User>> LoginAsync(LoginRequest request)
         {
             User? user = await dbContext.Users.FirstOrDefaultAsync(u => u.Account == request.Account);
             if (user == null)
             {
-                return new ServiceResult<User>
-                {
-                    Code = HttpStatusCode.Conflict
-                };
+                return Result<User>.Failure(ResultCode.Unauthorized, "帳號或密碼錯誤");
             }
 
             bool isPasswordValid = PasswordValid(request.Password, user.PasswordHash);
             if (!isPasswordValid)
             {
-                return new ServiceResult<User>
-                {
-                    Code = HttpStatusCode.Conflict
-                };
+                return Result<User>.Failure(ResultCode.Unauthorized, "帳號或密碼錯誤");
             }
 
             user.LastLoginAt = DateTime.UtcNow;
@@ -61,11 +49,7 @@ namespace AssetTracker.Services
             dbContext.Update(user);
             await dbContext.SaveChangesAsync();
 
-            return new ServiceResult<User>
-            {
-                Code = HttpStatusCode.OK,
-                Result = user
-            };
+            return Result<User>.Success(user);
         }
 
         public async Task<bool> IsAccountExists(string account) => await dbContext.Users.AnyAsync(u => u.Account == account);

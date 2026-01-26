@@ -1,3 +1,5 @@
+using AssetTracker;
+using AssetTracker.ApiClients;
 using AssetTracker.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -5,18 +7,46 @@ using Microsoft.IdentityModel.Tokens;
 using Project.Data;
 using Scalar.AspNetCore;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
-//TODO: §F∏—¶≥≠˛®«§Ë¶°©Œ§u®„•i•H∞Oø˝log
-//TODO: §F∏—¶≥≠˛®«§Ë´K™∫Object¬‡¥´§u®„°A©Œ¶€§vºg§@≠”
+//TODO: ‰∫ÜËß£ÊúâÂì™‰∫õÊñπÂºèÊàñÂ∑•ÂÖ∑ÂèØ‰ª•Ë®òÈåÑlog
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // ËÆìEnum‰ª•Â≠ó‰∏≤ÂΩ¢ÂºèÊé•Êî∂ÂíåÂõûÂÇ≥
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 
-builder.Services.AddControllers();
+builder.Services.AddHttpClient<IStockApiClients,FinMindApiClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["FinMindApi:BaseApi"]!);
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("Authorization", builder.Configuration["FinMindApi:Key"]);
+});
+
+builder.Services.AddHttpClient<IExchangeRateApiClient, ExchangeRateApiClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["ExchangeRateApi:BaseApi"]! + builder.Configuration["ExchangeRateApi:Key"] + "/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddKeyedSingleton("ApiResponse", new JsonSerializerOptions
+{
+    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+    PropertyNameCaseInsensitive = true,
+});
+
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<TransactionService>();
+builder.Services.AddScoped<StockService>();
+builder.Services.AddScoped<ExchangeRateService>();
+
 builder.Services.AddAuthentication(option =>
 {
     option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -38,6 +68,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddOpenApi();
+
+MapsterConfig.SettingGlobalConfig();
 
 var app = builder.Build();
 

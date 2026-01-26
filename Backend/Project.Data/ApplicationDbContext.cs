@@ -8,6 +8,8 @@ namespace Project.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Avatar> Avatars { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
+        public DbSet<StockPriceHistory> StockPriceHistories { get; set; }
+        public DbSet<ExchangeRateHistory> ExchangeRateHistories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -44,6 +46,26 @@ namespace Project.Data
 
                 entity.HasOne(e => e.User).WithMany(u => u.Avatars).HasForeignKey(u => u.UserId);
             });
+
+            modelBuilder.Entity<StockPriceHistory>(entity =>
+            {
+                entity.Property(e => e.OpeningPrice).HasPrecision(18, 2);
+                entity.Property(e => e.ClosingPrice).HasPrecision(18, 2);
+                entity.Property(e => e.High).HasPrecision(18, 2);
+                entity.Property(e => e.Low).HasPrecision(18, 2);
+
+                entity.HasIndex(e => new { e.Exchange, e.Code, e.Date }).IsUnique();
+
+                entity.HasQueryFilter(e => e.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<ExchangeRateHistory>(entity =>
+            {
+                entity.Property(e => e.ToUSDRate).HasPrecision(14, 6);
+
+                entity.HasIndex(e => new { e.CurrencyCode, e.Date }).IsUnique();
+                entity.HasQueryFilter(e => e.DeletedAt == null);
+            });
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -67,7 +89,7 @@ namespace Project.Data
                     }
                 }
 
-                if(entry.State == EntityState.Modified)
+                if (entry.State == EntityState.Modified)
                 {
                     if (updatedAtProp != null)
                     {
@@ -75,7 +97,7 @@ namespace Project.Data
                     }
                 }
 
-                if(entry.State == EntityState.Deleted)
+                if (entry.State == EntityState.Deleted)
                 {
                     if (updatedAtProp != null)
                     {

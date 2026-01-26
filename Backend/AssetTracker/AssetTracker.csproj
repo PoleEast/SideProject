@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>25cd9075-f855-44ca-bcd1-5ff491da6f4c</UserSecretsId>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -54,6 +55,10 @@
     <Content Remove="C:\Users\Enzo\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.14.0\contentFiles\any\any\BuildHost-netcore\tr\System.CommandLine.resources.dll" />
     <Content Remove="C:\Users\Enzo\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.14.0\contentFiles\any\any\BuildHost-netcore\zh-Hans\System.CommandLine.resources.dll" />
     <Content Remove="C:\Users\Enzo\.nuget\packages\microsoft.codeanalysis.workspaces.msbuild\4.14.0\contentFiles\any\any\BuildHost-netcore\zh-Hant\System.CommandLine.resources.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="nul" />
   </ItemGroup>
 
   <ItemGroup>

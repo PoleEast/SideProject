@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Project.Shared.DTOs.Transaction;
+using Project.Shared.Types;
 using System.Net;
 using System.Security.Claims;
 namespace AssetTracker.Controllers
@@ -23,15 +24,11 @@ namespace AssetTracker.Controllers
 
             var result = await service.CreateTransactionAsync(userId, request);
 
-            if (result.Code == System.Net.HttpStatusCode.Unauthorized)
-            {
-                return Unauthorized();
-            }
-
             return result.Code switch
             {
-                HttpStatusCode.OK => Ok(result.Result),
-                HttpStatusCode.Conflict => Conflict(),
+                ResultCode.Success => Ok(result.Value),
+                ResultCode.Conflict => Conflict(result.Message),
+                ResultCode.Unauthorized => Unauthorized(result.Message),
                 _ => StatusCode((int)result.Code)
             };
         }
@@ -48,7 +45,7 @@ namespace AssetTracker.Controllers
 
             return result.Code switch
             {
-                HttpStatusCode.OK => Ok(result.Result),
+                ResultCode.Success => Ok(result.Value),
                 _ => StatusCode((int)result.Code)
             };
         }
@@ -65,8 +62,8 @@ namespace AssetTracker.Controllers
 
             return result.Code switch
             {
-                HttpStatusCode.OK => Ok(result.Result),
-                HttpStatusCode.NotFound => NotFound(),
+                ResultCode.Success => Ok(result.Value),
+                ResultCode.NotFound => NotFound(result.Message),
                 _ => StatusCode((int)result.Code)
             };
         }
@@ -83,8 +80,8 @@ namespace AssetTracker.Controllers
 
             return result.Code switch
             {
-                HttpStatusCode.OK => Ok(result.Result),
-                HttpStatusCode.NotFound => NotFound(),
+                ResultCode.Success => Ok(result.Value),
+                ResultCode.NotFound => NotFound(result.Message),
                 _ => StatusCode((int)result.Code)
             };
         }
@@ -102,8 +99,8 @@ namespace AssetTracker.Controllers
 
             return result.Code switch
             {
-                HttpStatusCode.OK => Ok(),
-                HttpStatusCode.NotFound => NotFound(),
+                ResultCode.Success => Ok(),
+                ResultCode.NotFound => NotFound(result.Message),
                 _ => StatusCode((int)result.Code)
             };
         }

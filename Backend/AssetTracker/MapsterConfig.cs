@@ -1,10 +1,10 @@
-﻿using Azure;
-using Mapster;
+﻿using Mapster;
 using Project.Data.Model;
 using Project.Shared.DTOs.ExchangeRate;
 using Project.Shared.DTOs.FinMind.StockInfo;
 using Project.Shared.DTOs.FinMind.StockPrice;
 using Project.Shared.DTOs.Stock;
+using Project.Shared.DTOs.Transaction;
 
 namespace AssetTracker
 {
@@ -29,12 +29,13 @@ namespace AssetTracker
                 .Ignore(d => d.Exchange)
                 .Ignore(d => d.Name)
                 .Ignore(d => d.Currency)
+                .Ignore(d => d.StockMarket)
                 .Ignore(d => d.CreatedAt)
                 .Ignore(d => d.UpdatedAt!)
                 .Ignore(d => d.DeletedAt!);
 
             TypeAdapterConfig<PairResponse, ExchangeRateHistory>.NewConfig()
-                .Map(d => d.CurrencyCode, s => s.BaseCode)
+                .Map(d => d.Currency, s => s.BaseCode)
                 .Map(d => d.ToUSDRate, s => s.ConversionRate)
                 .Map(d => d.Date, s => DateTimeOffset.FromUnixTimeSeconds(s.TimeLastUpdateUnix).UtcDateTime.Date)
                 .Ignore(d => d.Id)

@@ -13,7 +13,7 @@ namespace AssetTracker.Services
     {
         public async Task<Result<User>> RegisterAsync(RegisterRequest request)
         {
-            bool exists = await IsAccountExists(request.Account);
+            bool exists = await IsAccountExistsAsync(request.Account);
             if (exists)
             {
                 return Result<User>.Failure(ResultCode.Conflict, "此帳號已被註冊");

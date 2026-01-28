@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Project.Data.Model;
+using Project.Shared.Types;
 
 namespace Project.Data
 {
@@ -10,6 +11,14 @@ namespace Project.Data
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<StockPriceHistory> StockPriceHistories { get; set; }
         public DbSet<ExchangeRateHistory> ExchangeRateHistories { get; set; }
+
+        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+        {
+            configurationBuilder.Properties<CurrencyType>().HaveConversion<string>();
+            configurationBuilder.Properties<StockMarketType>().HaveConversion<string>();
+            configurationBuilder.Properties<TransactionType>().HaveConversion<string>();
+            configurationBuilder.Properties<AvatarType>().HaveConversion<string>();
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -28,7 +37,6 @@ namespace Project.Data
             modelBuilder.Entity<Transaction>(entity =>
             {
                 entity.Property(e => e.Price).HasPrecision(18, 2);
-                entity.Property(e => e.Type).HasConversion<string>();
                 entity.Property(e => e.Remark).HasMaxLength(200);
 
                 entity.HasQueryFilter(e => e.User.DeletedAt == null);
@@ -38,8 +46,6 @@ namespace Project.Data
 
             modelBuilder.Entity<Avatar>(entity =>
             {
-                entity.Property(e => e.Type).HasConversion<string>();
-
                 entity.HasIndex(e => new { e.UserId, e.IsCurrent }).HasFilter("[IsCurrent] = 1").IsUnique();
 
                 entity.HasQueryFilter(e => e.User.DeletedAt == null);
@@ -54,7 +60,7 @@ namespace Project.Data
                 entity.Property(e => e.High).HasPrecision(18, 2);
                 entity.Property(e => e.Low).HasPrecision(18, 2);
 
-                entity.HasIndex(e => new { e.Exchange, e.Code, e.Date }).IsUnique();
+                entity.HasIndex(e => new { e.StockMarket, e.Code, e.Date }).IsUnique();
 
                 entity.HasQueryFilter(e => e.DeletedAt == null);
             });
@@ -63,7 +69,7 @@ namespace Project.Data
             {
                 entity.Property(e => e.ToUSDRate).HasPrecision(14, 6);
 
-                entity.HasIndex(e => new { e.CurrencyCode, e.Date }).IsUnique();
+                entity.HasIndex(e => new { e.Currency, e.Date }).IsUnique();
                 entity.HasQueryFilter(e => e.DeletedAt == null);
             });
         }
@@ -99,7 +105,7 @@ namespace Project.Data
 
                 if (entry.State == EntityState.Deleted)
                 {
-                    if (updatedAtProp != null)
+                    if (deletedAtProp != null)
                     {
                         entry.State = EntityState.Modified;
                         entry.Property("DeletedAt").CurrentValue = DateTime.UtcNow;

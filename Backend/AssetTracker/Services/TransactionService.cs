@@ -12,7 +12,7 @@ namespace AssetTracker.Services
     {
         public async Task<Result<TransactionResponse>> CreateTransactionAsync(int userId, CreateTransactionRequest request)
         {
-            bool exists = await IsUserIdExists(userId);
+            bool exists = await IsUserIdExistsAsync(userId);
 
             if (!exists)
             {
@@ -58,12 +58,12 @@ namespace AssetTracker.Services
 
 
             if (request.StockCode != null) transaction.StockCode = request.StockCode;
-            if (request.Exchange != null) transaction.Exchange = request.Exchange;
+            if (request.Market != null) transaction.StockMarket = request.Market.Value;
             if (request.Date.HasValue) transaction.Date = request.Date.Value;
             if (request.Type.HasValue) transaction.Type = request.Type.Value;
             if (request.Price.HasValue) transaction.Price = request.Price.Value;
             if (request.Quantity.HasValue) transaction.Quantity = request.Quantity.Value;
-            if (request.CurrencyCode != null) transaction.CurrencyCode = request.CurrencyCode;
+            if (request.Currency != null) transaction.Currency = request.Currency.Value;
             if (request.Remark != null) transaction.Remark = request.Remark;
 
             dbContext.Update(transaction);

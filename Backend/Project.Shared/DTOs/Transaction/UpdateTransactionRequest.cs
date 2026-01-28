@@ -7,10 +7,10 @@ namespace Project.Shared.DTOs.Transaction
     public class UpdateTransactionRequest
     {
         [Description("股票代碼")]
-        public string? StockCode { get; set; } = string.Empty;
+        public string? StockCode { get; set; }
 
-        [Description("交易所")]
-        public string? Exchange { get; set; } = string.Empty;
+        [Description("市場")]
+        public StockMarketType? Market { get; set; }
 
         [Description("交易日期")]
         public DateTime? Date { get; set; }
@@ -27,9 +27,9 @@ namespace Project.Shared.DTOs.Transaction
         public int? Quantity { get; set; }
 
         [Description("貨幣代碼")]
-        public string? CurrencyCode { get; set; } = string.Empty;
+        public CurrencyType? Currency { get; set; }
 
         [Description("備註")]
-        public string? Remark { get; set; } = string.Empty;
+        public string? Remark { get; set; }
     }
 }

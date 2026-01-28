@@ -11,7 +11,7 @@ namespace AssetTracker.Services
     {
         public async Task<Result<ExchangeRateHistory>> GetExchangeRateAsync(CurrencyType currencyType)
         {
-            var dbResult = await dbContext.ExchangeRateHistories.FirstOrDefaultAsync(e => e.CurrencyCode == currencyType.ToString() && e.Date.Date == DateTime.UtcNow.Date);
+            var dbResult = await dbContext.ExchangeRateHistories.FirstOrDefaultAsync(e => e.Currency == currencyType && e.Date.Date == DateTime.UtcNow.Date);
             if (dbResult != null) return Result<ExchangeRateHistory>.Success(dbResult);
 
             var apiResult = await exchangeRateApiClient.GetExchangeRateToUSDAsync(currencyType);

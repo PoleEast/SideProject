@@ -57,7 +57,8 @@ namespace AssetTracker.ApiClients
             {
                 x.Name = stockInfo.Name;
                 x.Exchange = stockInfo.Exchange;
-                x.Currency = market.GetCurrency()?.ToString() ?? "";
+                x.StockMarket = market;
+                x.Currency = market.GetCurrency() ?? throw new InvalidOperationException("Currency should not be null");
             });
 
             return Result<List<StockPriceHistory>>.Success(result);

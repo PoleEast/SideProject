@@ -16,9 +16,9 @@ namespace Project.Shared.DTOs.Transaction
         [Required(ErrorMessage = "請傳入股票代碼")]
         public string StockCode { get; set; } = string.Empty;
 
-        [Description("交易所")]
-        [Required(ErrorMessage = "請傳入交易所")]
-        public string Exchange { get; set; } = string.Empty;
+        [Description("市場")]
+        [Required(ErrorMessage = "請傳入所屬市場")]
+        public StockMarketType Market { get; set; }
 
         [Description("交易日期")]
         [Required(ErrorMessage = "請傳入交易日期")]
@@ -40,7 +40,7 @@ namespace Project.Shared.DTOs.Transaction
 
         [Description("貨幣代碼")]
         [Required(ErrorMessage = "請傳入貨幣代碼")]
-        public string CurrencyCode { get; set; } = string.Empty;
+        public CurrencyType Currency { get; set; }
 
         [Description("備註")]
         public string Remark { get; set; } = string.Empty;

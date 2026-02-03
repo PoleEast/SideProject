@@ -42,6 +42,7 @@ namespace AssetTracker.Controllers
             return result.Code switch
             {
                 ResultCode.Conflict => Conflict(result.Message),
+                ResultCode.Unauthorized => Unauthorized(result.Message),
                 _ => StatusCode((int)result.Code)
             };
         }

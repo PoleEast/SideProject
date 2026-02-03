@@ -19,8 +19,18 @@ namespace AssetTracker.Services
                 return Result<TransactionResponse>.Failure(ResultCode.Unauthorized, "使用者不存在");
             }
 
-            var transaction = request.Adapt<Transaction>();
-            transaction.UserId = userId;
+            var transaction = new Transaction
+            {
+                UserId = userId,
+                StockMarket = request.Market,
+                StockCode = request.StockCode,
+                Date = request.Date,
+                Type = request.Type,
+                Quantity = request.Quantity,
+                Price = request.Price,
+                Currency = request.Currency,
+                Remark = request.Remark,
+            };
 
             dbContext.Add(transaction);
             await dbContext.SaveChangesAsync();

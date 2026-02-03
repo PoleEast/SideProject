@@ -39,7 +39,7 @@ namespace Project.Data
                 entity.Property(e => e.Price).HasPrecision(18, 2);
                 entity.Property(e => e.Remark).HasMaxLength(200);
 
-                entity.HasQueryFilter(e => e.User.DeletedAt == null);
+                entity.HasQueryFilter(e => e.DeletedAt == null && e.User.DeletedAt == null);
 
                 entity.HasOne(e => e.User).WithMany(u => u.Transactions).HasForeignKey(u => u.UserId);
             });

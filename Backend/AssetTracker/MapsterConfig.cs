@@ -1,5 +1,6 @@
 ﻿using Mapster;
 using Project.Data.Model;
+using Project.Shared.DTOs.Auth;
 using Project.Shared.DTOs.ExchangeRate;
 using Project.Shared.DTOs.FinMind.StockInfo;
 using Project.Shared.DTOs.FinMind.StockPrice;
@@ -16,6 +17,17 @@ namespace AssetTracker
             TypeAdapterConfig.GlobalSettings.RequireDestinationMemberSource = true;
 
             #region To Entity
+            TypeAdapterConfig<RegisterRequest, User>.NewConfig()
+                .Map(d => d.Account, s => s.Account)
+                .Map(d => d.Name, s => s.Name)
+                .Ignore(d => d.Id)
+                .Ignore(d => d.PasswordHash)
+                .Ignore(d => d.LastLoginAt!)
+                .Ignore(d => d.CreatedAt)
+                .Ignore(d => d.UpdatedAt!)
+                .Ignore(d => d.DeletedAt!)
+                .Ignore(d=>d.Transactions)
+                .Ignore(d=>d.Avatars);
 
             TypeAdapterConfig<StockPrice, StockPriceHistory>.NewConfig()
                 .Map(d => d.OpeningPrice, s => s.Open)
@@ -98,6 +110,22 @@ namespace AssetTracker
                 .Map(d => d.Close, s => s.Close);
 
             #endregion
+
+            #endregion
+
+            #region To Response
+
+            TypeAdapterConfig<Transaction, TransactionResponse>.NewConfig()
+                .Map(d => d.Id, s => s.Id)
+                .Map(d => d.StockCode, s => s.StockCode)
+                .Map(d => d.Market, s => s.StockMarket)
+                .Map(d => d.Date, s => s.Date)
+                .Map(d => d.Type, s => s.Type)
+                .Map(d => d.Price, s => s.Price)
+                .Map(d => d.Quantity, s => s.Quantity)
+                .Map(d => d.Currency, s => s.Currency)
+                .Map(d => d.Remark, s => s.Remark)
+                .Map(d => d.CreatedAt, s => s.CreatedAt);
 
             #endregion
 

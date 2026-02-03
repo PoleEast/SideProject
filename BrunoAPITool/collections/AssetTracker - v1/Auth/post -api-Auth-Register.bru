@@ -1,0 +1,79 @@
+meta {
+  name: post /api/Auth/Register
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/Auth/Register
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "account": "",
+    "password": "",
+    "name": ""
+  }
+}
+
+vars:pre-request {
+  baseUrl: https://localhost:7118
+}
+
+script:pre-request {
+  const account =bru.interpolate('{{$randomUserName}}');
+  const password =bru.interpolate('{{$randomPassword}}');
+  const username =bru.interpolate('{{$randomFullName}}');
+  
+  const body = {
+    "account": `${account}`,
+    "password": `${password}`,
+    "name": `${username}`
+  }
+  
+  req.setBody(body);
+  
+  bru.setVar("account", account)
+  bru.setVar("password", password)
+  
+}
+
+script:post-response {
+  if (res.status === 200 && res.body.token !== null) {
+    bru.setVar("jwtToken", res.body.token);
+  }
+}
+
+example {
+  name: 200 Response
+  description: OK
+  
+  request: {
+    url: {{baseUrl}}/api/Auth/Register
+    method: POST
+    mode: json
+    body:json: {
+      {
+        "account": "",
+        "password": "",
+        "name": ""
+      }
+    }
+  }
+  
+  response: {
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: text
+      content: '''
+  
+      '''
+    }
+  }
+}

@@ -1,0 +1,200 @@
+meta {
+  name: put /api/Transaction/:id
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/Transaction/:id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  id: 
+}
+
+body:json {
+  {
+    "stockCode": "",
+    "market": "",
+    "date": "",
+    "type": "",
+    "price": "",
+    "quantity": "",
+    "currency": "",
+    "remark": ""
+  }
+}
+
+vars:pre-request {
+  baseUrl: https://localhost:7118
+}
+
+example {
+  name: 200 Response
+  description: OK
+  
+  request: {
+    url: {{baseUrl}}/api/Transaction/:id
+    method: PUT
+    mode: json
+    params:path: {
+      id: 
+    }
+  
+    body:json: {
+      {
+        "stockCode": "",
+        "market": "",
+        "date": "",
+        "type": "",
+        "price": "",
+        "quantity": "",
+        "currency": "",
+        "remark": ""
+      }
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: text/plain
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: text
+      content: '''
+        {
+          "id": "",
+          "stockCode": "",
+          "market": "",
+          "date": "",
+          "type": "",
+          "price": "",
+          "quantity": "",
+          "currency": "",
+          "remark": "",
+          "createdAt": ""
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 200 Response
+  description: OK
+  
+  request: {
+    url: {{baseUrl}}/api/Transaction/:id
+    method: PUT
+    mode: json
+    params:path: {
+      id: 
+    }
+  
+    body:json: {
+      {
+        "stockCode": "",
+        "market": "",
+        "date": "",
+        "type": "",
+        "price": "",
+        "quantity": "",
+        "currency": "",
+        "remark": ""
+      }
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "id": "",
+          "stockCode": "",
+          "market": "",
+          "date": "",
+          "type": "",
+          "price": "",
+          "quantity": "",
+          "currency": "",
+          "remark": "",
+          "createdAt": ""
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 200 Response
+  description: OK
+  
+  request: {
+    url: {{baseUrl}}/api/Transaction/:id
+    method: PUT
+    mode: json
+    params:path: {
+      id: 
+    }
+  
+    body:json: {
+      {
+        "stockCode": "",
+        "market": "",
+        "date": "",
+        "type": "",
+        "price": "",
+        "quantity": "",
+        "currency": "",
+        "remark": ""
+      }
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: text/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "id": "",
+          "stockCode": "",
+          "market": "",
+          "date": "",
+          "type": "",
+          "price": "",
+          "quantity": "",
+          "currency": "",
+          "remark": "",
+          "createdAt": ""
+        }
+      '''
+    }
+  }
+}

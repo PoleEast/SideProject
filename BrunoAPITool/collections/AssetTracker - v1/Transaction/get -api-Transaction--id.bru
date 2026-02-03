@@ -1,0 +1,148 @@
+meta {
+  name: get /api/Transaction/:id
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/Transaction/:id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  id: 2
+}
+
+vars:pre-request {
+  baseUrl: https://localhost:7118
+}
+
+example {
+  name: 200 Response
+  description: OK
+  
+  request: {
+    url: {{baseUrl}}/api/Transaction/:id
+    method: GET
+    mode: none
+    params:path: {
+      id: 
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: text/plain
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: text
+      content: '''
+        {
+          "id": "",
+          "stockCode": "",
+          "market": "",
+          "date": "",
+          "type": "",
+          "price": "",
+          "quantity": "",
+          "currency": "",
+          "remark": "",
+          "createdAt": ""
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 200 Response
+  description: OK
+  
+  request: {
+    url: {{baseUrl}}/api/Transaction/:id
+    method: GET
+    mode: none
+    params:path: {
+      id: 
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "id": "",
+          "stockCode": "",
+          "market": "",
+          "date": "",
+          "type": "",
+          "price": "",
+          "quantity": "",
+          "currency": "",
+          "remark": "",
+          "createdAt": ""
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 200 Response
+  description: OK
+  
+  request: {
+    url: {{baseUrl}}/api/Transaction/:id
+    method: GET
+    mode: none
+    params:path: {
+      id: 
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: text/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "id": "",
+          "stockCode": "",
+          "market": "",
+          "date": "",
+          "type": "",
+          "price": "",
+          "quantity": "",
+          "currency": "",
+          "remark": "",
+          "createdAt": ""
+        }
+      '''
+    }
+  }
+}

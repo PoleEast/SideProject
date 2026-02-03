@@ -1,0 +1,12 @@
+opencollection: 1.0.0
+info:
+  name: "BrunoAPITool"
+  type: workspace
+
+collections:
+  - name: "AssetTracker | v1"
+    path: "collections\\AssetTracker - v1"
+
+specs:
+
+docs: ''

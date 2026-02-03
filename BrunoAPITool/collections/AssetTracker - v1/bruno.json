@@ -1,0 +1,15 @@
+{
+  "version": "1",
+  "name": "AssetTracker | v1",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ],
+  "size": 0.01918792724609375,
+  "filesCount": 18,
+  "presets": {
+    "requestType": "http",
+    "requestUrl": "https://localhost:7118"
+  }
+}

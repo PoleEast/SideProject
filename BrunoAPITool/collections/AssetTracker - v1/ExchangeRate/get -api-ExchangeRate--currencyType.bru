@@ -1,0 +1,47 @@
+meta {
+  name: get /api/ExchangeRate/:currencyType
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/ExchangeRate/:currencyType
+  body: none
+  auth: inherit
+}
+
+params:path {
+  currencyType: JPY
+}
+
+vars:pre-request {
+  baseUrl: https://localhost:7118
+}
+
+example {
+  name: 200 Response
+  description: OK
+  
+  request: {
+    url: {{baseUrl}}/api/ExchangeRate/:currencyType
+    method: GET
+    mode: none
+    params:path: {
+      currencyType: 
+    }
+  }
+  
+  response: {
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: text
+      content: '''
+  
+      '''
+    }
+  }
+}

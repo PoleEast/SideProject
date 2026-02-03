@@ -1,0 +1,123 @@
+meta {
+  name: get /api/Position
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/Position
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  baseUrl: https://localhost:7118
+}
+
+example {
+  name: 200 Response
+  description: OK
+  
+  request: {
+    url: {{baseUrl}}/api/Position
+    method: GET
+    mode: none
+  }
+  
+  response: {
+    headers: {
+      Content-Type: text/plain
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: text
+      content: '''
+        [
+          {
+            "stockMarket": "",
+            "stockCode": "",
+            "quantity": "",
+            "averagePrice": ""
+          }
+        ]
+      '''
+    }
+  }
+}
+
+example {
+  name: 200 Response
+  description: OK
+  
+  request: {
+    url: {{baseUrl}}/api/Position
+    method: GET
+    mode: none
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        [
+          {
+            "stockMarket": "",
+            "stockCode": "",
+            "quantity": "",
+            "averagePrice": ""
+          }
+        ]
+      '''
+    }
+  }
+}
+
+example {
+  name: 200 Response
+  description: OK
+  
+  request: {
+    url: {{baseUrl}}/api/Position
+    method: GET
+    mode: none
+  }
+  
+  response: {
+    headers: {
+      Content-Type: text/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        [
+          {
+            "stockMarket": "",
+            "stockCode": "",
+            "quantity": "",
+            "averagePrice": ""
+          }
+        ]
+      '''
+    }
+  }
+}

@@ -76,8 +76,10 @@ const formData = reactive({
 
 function switchMode() {
   isLogin.value = !isLogin.value
+  formData.password = ''
   formData.reenteredPassword = ''
   errorMsg.value = ''
+  formRef.value?.restoreValidation()
 }
 
 async function handleSubmit() {

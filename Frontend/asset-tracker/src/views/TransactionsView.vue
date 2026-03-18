@@ -13,6 +13,7 @@ import {
   NPopconfirm,
   NIcon,
   NAlert,
+  NSpin,
   useMessage,
 } from 'naive-ui'
 import { computed, h, onMounted, ref } from 'vue'
@@ -27,6 +28,7 @@ const message = useMessage()
 
 const transactions = ref<TransactionResponse[]>([])
 const errorMessage = ref<string | null>(null)
+const isLoading = ref(false)
 
 // 篩選
 const filterMarket = ref<string | null>(null)
@@ -177,6 +179,8 @@ const columns: DataTableColumns<TransactionResponse> = [
 ]
 
 async function loadTransactions() {
+  isLoading.value = true
+
   try {
     const result = await getTransactions()
 
@@ -188,6 +192,8 @@ async function loadTransactions() {
     transactions.value = result.data
   } catch {
     errorMessage.value = '網路連線發生問題，請稍後再試'
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -231,6 +237,12 @@ onMounted(loadTransactions)
     </n-input>
   </n-flex>
 
+  <!-- 載入中 -->
+  <div v-if="isLoading" class="flex justify-center py-20">
+    <n-spin size="large" />
+  </div>
+
+  <template v-else>
   <!-- 錯誤提示 -->
   <n-alert v-if="errorMessage" type="error" :bordered="false" class="mb-4">{{
     errorMessage
@@ -254,6 +266,7 @@ onMounted(loadTransactions)
   <div v-else class="flex justify-center py-20">
     <n-empty description="找不到符合條件的交易記錄" />
   </div>
+  </template>
 
   <!-- 新增/編輯 Modal -->
   <TransactionModal

@@ -29,8 +29,5 @@ namespace Project.Shared.DTOs.Position
 
         [Description("買入均價")]
         public decimal BuyPrice { get; set; }
-
-        [Description("貨幣代碼")]
-        public CurrencyType Currency { get; set; }
     }
 }

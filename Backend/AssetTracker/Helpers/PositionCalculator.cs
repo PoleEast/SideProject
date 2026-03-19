@@ -109,7 +109,6 @@ public static class PositionCalculator
                 Date = sellTransaction.Date,
                 SellPrice = sellTransaction.Price,
                 SellQuantity = sellTransaction.Quantity,
-                Currency = sellTransaction.Currency,
             };
 
             decimal buyAmount = 0;

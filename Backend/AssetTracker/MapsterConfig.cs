@@ -123,7 +123,6 @@ namespace AssetTracker
                 .Map(d => d.Type, s => s.Type)
                 .Map(d => d.Price, s => s.Price)
                 .Map(d => d.Quantity, s => s.Quantity)
-                .Map(d => d.Currency, s => s.Currency)
                 .Map(d => d.Remark, s => s.Remark)
                 .Map(d => d.CreatedAt, s => s.CreatedAt);
 

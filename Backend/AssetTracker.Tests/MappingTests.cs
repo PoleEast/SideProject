@@ -352,7 +352,6 @@ namespace AssetTracker.Tests
                 Type = TransactionType.Buy,
                 Quantity = 1000,
                 Price = 580.00m,
-                Currency = CurrencyType.TWD,
                 Remark = "定期定額",
                 CreatedAt = new DateTime(2024, 1, 15, 10, 30, 0),
                 UpdatedAt = null,                      // 不會被映射到回應
@@ -370,7 +369,6 @@ namespace AssetTracker.Tests
             Assert.Equal(transaction.Type, response.Type);
             Assert.Equal(transaction.Price, response.Price);
             Assert.Equal(transaction.Quantity, response.Quantity);
-            Assert.Equal(transaction.Currency, response.Currency);
             Assert.Equal(transaction.Remark, response.Remark);
             Assert.Equal(transaction.CreatedAt, response.CreatedAt);
         }

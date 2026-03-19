@@ -221,7 +221,6 @@ public class PositionServiceTests
         var firstSell = result.Value[0];
         Assert.Equal("2330", firstSell.StockCode);
         Assert.Equal(StockMarketType.TW, firstSell.StockMarket);
-        Assert.Equal(CurrencyType.TWD, firstSell.Currency);
         Assert.Equal(60, firstSell.SellQuantity);
         Assert.Equal(550m, firstSell.SellPrice);
         Assert.Equal(500m, firstSell.BuyPrice);

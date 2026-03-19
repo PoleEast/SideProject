@@ -363,10 +363,10 @@ public class PositionCalculatorTests
         Assert.Equal(ResultCode.BusinessRuleViolation, result.Code);
     }
 
-    [Fact(DisplayName = "已實現損益：驗證回傳物件的 Id、Date、StockCode、StockMarket、Currency 欄位正確對應賣出交易")]
+    [Fact(DisplayName = "已實現損益：驗證回傳物件的 Id、Date、StockCode、StockMarket 欄位正確對應賣出交易")]
     public void CalculateRealizedPnL_AssertsMappedFields_ReturnsCorrectMetadata()
     {
-        // Arrange - 使用美股市場，驗證 Currency 正確對應為 USD
+        // Arrange - 使用美股市場，驗證欄位正確對應
         var sellDate = new DateTime(2024, 3, 15);
         var transactions = new TransactionBuilder("AAPL", StockMarketType.US)
             .Buy(100, 150m, new DateTime(2024, 3, 1))
@@ -385,7 +385,6 @@ public class PositionCalculatorTests
         Assert.Equal(sellDate, pnl.Date);               // 日期來自賣出交易
         Assert.Equal("AAPL", pnl.StockCode);            // 股票代碼來自賣出交易
         Assert.Equal(StockMarketType.US, pnl.StockMarket); // 市場類型來自賣出交易
-        Assert.Equal(CurrencyType.USD, pnl.Currency);   // 貨幣類型隨市場類型正確對應
     }
 
     [Fact(DisplayName = "已實現損益：買入價高於賣出價，損益為負（亏損）")]

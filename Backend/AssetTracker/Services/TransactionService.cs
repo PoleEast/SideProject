@@ -28,7 +28,6 @@ namespace AssetTracker.Services
                 Type = request.Type,
                 Quantity = request.Quantity,
                 Price = request.Price,
-                Currency = request.Currency,
                 Remark = request.Remark,
             };
 
@@ -73,7 +72,6 @@ namespace AssetTracker.Services
             if (request.Type.HasValue) transaction.Type = request.Type.Value;
             if (request.Price.HasValue) transaction.Price = request.Price.Value;
             if (request.Quantity.HasValue) transaction.Quantity = request.Quantity.Value;
-            if (request.Currency != null) transaction.Currency = request.Currency.Value;
             if (request.Remark != null) transaction.Remark = request.Remark;
 
             dbContext.Update(transaction);

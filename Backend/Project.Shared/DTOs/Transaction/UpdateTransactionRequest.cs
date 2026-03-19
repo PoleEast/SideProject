@@ -19,15 +19,12 @@ namespace Project.Shared.DTOs.Transaction
         public TransactionType? Type { get; set; }
 
         [Description("每單位金額")]
-        [Range(0.0, double.MaxValue, ErrorMessage = "價格必須為正")]
+        [Range(0.01, double.MaxValue, ErrorMessage = "價格必須為正")]
         public decimal? Price { get; set; }
 
         [Description("數量")]
-        [Range(0, int.MaxValue, ErrorMessage = "數量必須為正")]
+        [Range(1, int.MaxValue, ErrorMessage = "數量必須為正")]
         public int? Quantity { get; set; }
-
-        [Description("貨幣代碼")]
-        public CurrencyType? Currency { get; set; }
 
         [Description("備註")]
         public string? Remark { get; set; }

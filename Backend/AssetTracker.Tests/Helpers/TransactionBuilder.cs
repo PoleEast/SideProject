@@ -55,13 +55,6 @@ public class TransactionBuilder(string stockCode = "2330", StockMarketType marke
             Quantity = quantity,
             Price = price,
             Date = date ?? new DateTime(2024, 1, _idCounter),
-            Currency = _market switch
-            {
-                StockMarketType.TW => CurrencyType.TWD,
-                StockMarketType.US => CurrencyType.USD,
-                StockMarketType.JP => CurrencyType.JPY,
-                _ => CurrencyType.TWD
-            },
             CreatedAt = DateTime.UtcNow
         };
     }

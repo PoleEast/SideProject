@@ -1,3 +1,5 @@
+import type { CurrencyType, MarketType, TransactionType } from './common'
+
 export interface TransactionRequest {
   stockCode: string
   market: MarketType
@@ -13,7 +15,3 @@ export interface TransactionResponse extends TransactionRequest {
   id: number
   createdAt: Date
 }
-
-export type MarketType = 'TW' | 'US' | 'JP'
-export type TransactionType = 'Buy' | 'Sell'
-export type CurrencyType = 'TWD' | 'USD' | 'JPY'

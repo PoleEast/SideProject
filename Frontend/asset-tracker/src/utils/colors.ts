@@ -1,4 +1,4 @@
-import type { MarketType, TransactionType } from '@/types/transaction'
+import type { MarketType, TransactionType } from '@/types/common'
 
 export const marketColors: Record<MarketType, { primary: string; secondary: string }> = {
   TW: { primary: '#1a3a6b', secondary: '#ffffff' },

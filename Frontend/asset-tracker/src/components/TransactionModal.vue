@@ -19,14 +19,10 @@ import {
 } from 'naive-ui'
 import { computed, reactive, ref, watch } from 'vue'
 import { EditRound, AddOutlined } from '@vicons/material'
-import type {
-  CurrencyType,
-  MarketType,
-  TransactionRequest,
-  TransactionResponse,
-} from '@/types/transaction'
+import type { TransactionRequest, TransactionResponse } from '@/types/transaction'
 import { create, updateTransaction } from '@/api/transaction'
 import { marketColors, transactionTypeColors } from '@/utils/colors'
+import type { MarketType, CurrencyType } from '@/types/common'
 
 const props = defineProps<{
   transaction: TransactionResponse | null

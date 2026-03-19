@@ -1,4 +1,4 @@
-import type { CurrencyType, MarketType, TransactionType } from './common'
+import type { MarketType, TransactionType } from './common'
 
 export interface TransactionRequest {
   stockCode: string
@@ -7,7 +7,6 @@ export interface TransactionRequest {
   type: TransactionType
   price: number
   quantity: number
-  currency: CurrencyType
   remark: string
 }
 

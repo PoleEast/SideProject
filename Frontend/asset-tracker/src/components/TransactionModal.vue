@@ -22,7 +22,7 @@ import { EditRound, AddOutlined } from '@vicons/material'
 import type { TransactionRequest, TransactionResponse } from '@/types/transaction'
 import { create, updateTransaction } from '@/api/transaction'
 import { marketColors, transactionTypeColors } from '@/utils/colors'
-import type { MarketType, CurrencyType } from '@/types/common'
+import type { CurrencyType, MarketType } from '@/types/common'
 
 const props = defineProps<{
   transaction: TransactionResponse | null
@@ -41,7 +41,6 @@ const formData = reactive({
   type: null as string | null,
   price: null as number | null,
   quantity: null as number | null,
-  currency: 'TWD' as CurrencyType,
   remark: '',
 })
 const rules: FormRules = {
@@ -53,9 +52,14 @@ const rules: FormRules = {
   type: [{ required: true, message: '請選擇交易類型', trigger: ['blur', 'change'] }],
   price: [{ required: true, type: 'number', message: '請輸入價格', trigger: ['blur', 'input'] }],
   quantity: [{ required: true, type: 'number', message: '請輸入數量', trigger: ['blur', 'input'] }],
-  currency: [{ required: true, message: '請選擇計價幣別', trigger: ['blur', 'change'] }],
 }
 const loading = ref(false)
+
+const marketCurrencyMap: Record<MarketType, CurrencyType> = {
+  TW: 'TWD',
+  US: 'USD',
+  JP: 'JPY',
+}
 
 const markets = (['TW', 'US', 'JP'] as MarketType[]).map((value) => ({
   value,
@@ -67,7 +71,7 @@ const markets = (['TW', 'US', 'JP'] as MarketType[]).map((value) => ({
   },
 }))
 
-const currencies = ['TWD', 'USD', 'JPY']
+const currencyHint = computed(() => marketCurrencyMap[formData.market])
 
 const handleSubmit = async () => {
   try {
@@ -110,7 +114,6 @@ watch(
       formData.type = val.type
       formData.price = val.price
       formData.quantity = val.quantity
-      formData.currency = val.currency
       formData.remark = val.remark
     } else {
       formData.stockCode = ''
@@ -119,7 +122,6 @@ watch(
       formData.type = null
       formData.price = null
       formData.quantity = null
-      formData.currency = 'TWD'
       formData.remark = ''
     }
   },
@@ -166,16 +168,21 @@ watch(
           </n-h3>
 
           <!-- 市場選擇器（放 header 右側） -->
-          <n-radio-group v-model:value="formData.market">
-            <n-radio-button
-              v-for="market in markets"
-              :key="market.value"
-              :value="market.value"
-              :style="market.style"
-            >
-              {{ market.value }}
-            </n-radio-button>
-          </n-radio-group>
+          <div class="flex flex-col items-end gap-1">
+            <n-radio-group v-model:value="formData.market">
+              <n-radio-button
+                v-for="market in markets"
+                :key="market.value"
+                :value="market.value"
+                :style="market.style"
+              >
+                {{ market.value }}
+              </n-radio-button>
+            </n-radio-group>
+            <n-text depth="3" class="text-xs">
+              交易幣別：{{ currencyHint }}
+            </n-text>
+          </div>
         </div>
       </div>
 
@@ -254,20 +261,6 @@ watch(
             />
           </n-form-item>
         </div>
-
-        <!-- 貨幣 -->
-        <n-form-item label="計價幣別" path="currency">
-          <n-radio-group v-model:value="formData.currency" class="w-full">
-            <n-radio-button
-              v-for="currency in currencies"
-              :key="currency"
-              :value="currency"
-              class="w-1/3 text-center"
-            >
-              {{ currency }}
-            </n-radio-button>
-          </n-radio-group>
-        </n-form-item>
 
         <!-- 備註 -->
         <n-form-item label="備註" path="remark">

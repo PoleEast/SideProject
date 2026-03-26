@@ -130,17 +130,6 @@ const columns: DataTableColumns<TransactionResponse> = [
   { title: '價格', key: 'price', width: 100 },
   { title: '數量', key: 'quantity', width: 80 },
   {
-    title: '貨幣',
-    key: 'currency',
-    width: 80,
-    render: (row) =>
-      h(
-        NTag,
-        { size: 'small', bordered: false, style: 'font-weight:600' },
-        { default: () => row.currency },
-      ),
-  },
-  {
     title: '操作',
     key: 'actions',
     width: 110,
@@ -243,29 +232,29 @@ onMounted(loadTransactions)
   </div>
 
   <template v-else>
-  <!-- 錯誤提示 -->
-  <n-alert v-if="errorMessage" type="error" :bordered="false" class="mb-4">{{
-    errorMessage
-  }}</n-alert>
+    <!-- 錯誤提示 -->
+    <n-alert v-if="errorMessage" type="error" :bordered="false" class="mb-4">{{
+      errorMessage
+    }}</n-alert>
 
-  <!-- 表格資料 -->
-  <n-data-table
-    v-else-if="filterTransactions.length > 0"
-    :columns="columns"
-    :data="filterTransactions"
-    :bordered="false"
-    striped
-  />
+    <!-- 表格資料 -->
+    <n-data-table
+      v-else-if="filterTransactions.length > 0"
+      :columns="columns"
+      :data="filterTransactions"
+      :bordered="false"
+      striped
+    />
 
-  <!-- 空資料 -->
-  <div v-else-if="transactions.length === 0" class="flex justify-center py-20">
-    <n-empty description="尚無交易記錄，點擊右上角新增第一筆吧！" />
-  </div>
+    <!-- 空資料 -->
+    <div v-else-if="transactions.length === 0" class="flex justify-center py-20">
+      <n-empty description="尚無交易記錄，點擊右上角新增第一筆吧！" />
+    </div>
 
-  <!-- 篩選後無資料 -->
-  <div v-else class="flex justify-center py-20">
-    <n-empty description="找不到符合條件的交易記錄" />
-  </div>
+    <!-- 篩選後無資料 -->
+    <div v-else class="flex justify-center py-20">
+      <n-empty description="找不到符合條件的交易記錄" />
+    </div>
   </template>
 
   <!-- 新增/編輯 Modal -->
@@ -274,4 +263,6 @@ onMounted(loadTransactions)
     :transaction="editingTransaction"
     @refresh="loadTransactions"
   />
+
+  <!-- TODO: 增加交易熱點圖 -->
 </template>

@@ -23,7 +23,7 @@ function renderIcon(icon: Component) {
   return () => h(NIcon, null, { default: () => h(icon) })
 }
 
-const logout = () => {
+const handleLogout = () => {
   authStore.logout()
   router.push('/positions')
 }
@@ -70,7 +70,7 @@ function handleMenuSelect(key: string) {
         <!-- 登出 -->
         <div class="mt-auto p-4">
           <n-divider class="mb-4!" />
-          <n-button block secondary @click="logout()">登出</n-button>
+          <n-button block secondary @click="handleLogout">登出</n-button>
         </div>
       </n-layout-sider>
 

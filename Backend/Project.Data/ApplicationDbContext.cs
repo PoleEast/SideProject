@@ -10,7 +10,6 @@ namespace Project.Data
         public DbSet<Avatar> Avatars { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<StockPriceHistory> StockPriceHistories { get; set; }
-        public DbSet<ExchangeRateHistory> ExchangeRateHistories { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
@@ -62,14 +61,6 @@ namespace Project.Data
 
                 entity.HasIndex(e => new { e.StockMarket, e.Code, e.Date }).IsUnique();
 
-                entity.HasQueryFilter(e => e.DeletedAt == null);
-            });
-
-            modelBuilder.Entity<ExchangeRateHistory>(entity =>
-            {
-                entity.Property(e => e.ToUSDRate).HasPrecision(14, 6);
-
-                entity.HasIndex(e => new { e.Currency, e.Date }).IsUnique();
                 entity.HasQueryFilter(e => e.DeletedAt == null);
             });
         }

@@ -1,13 +1,11 @@
 using System;
-using System.Collections.Generic;
 
-namespace Project.Shared.DTOs.ExchangeRate
+namespace Project.Shared.DTOs.ExchangeRate.ExchangeRateAPI
 {
     /// <summary>
-    /// ExchangeRate-API 標準回應格式
-    /// 文件: https://www.exchangerate-api.com/docs
+    /// ExchangeRate-API Pair Conversion 回應格式
     /// </summary>
-    public class StandardResponse
+    public class PairResponse
     {
         /// <summary>
         /// API 請求結果 (success/error)
@@ -16,7 +14,6 @@ namespace Project.Shared.DTOs.ExchangeRate
 
         /// <summary>
         /// 錯誤類型 (當 Result 為 error 時會有值)
-        /// 可能值: unsupported-code, malformed-request, invalid-key, inactive-account, quota-reached
         /// </summary>
         public string? ErrorType { get; set; }
 
@@ -51,13 +48,18 @@ namespace Project.Shared.DTOs.ExchangeRate
         public string TimeNextUpdateUtc { get; set; } = string.Empty;
 
         /// <summary>
-        /// 基準貨幣代碼 (如 USD, EUR)
+        /// 基準貨幣代碼 (如 TWD, USD)
         /// </summary>
         public string BaseCode { get; set; } = string.Empty;
 
         /// <summary>
-        /// 各貨幣的匯率對照表 (Key: 貨幣代碼, Value: 匯率)
+        /// 目標貨幣代碼 (如 USD, EUR)
         /// </summary>
-        public Dictionary<string, decimal> ConversionRates { get; set; } = [];
+        public string TargetCode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 匯率 (1 基準貨幣 = ? 目標貨幣)
+        /// </summary>
+        public decimal ConversionRate { get; set; }
     }
 }

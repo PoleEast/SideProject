@@ -1,27 +1,31 @@
 ﻿using AssetTracker.ApiClients;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Project.Data;
 using Project.Data.Model;
 using Project.Shared.DTOs;
+using Project.Shared.DTOs.ExchangeRate;
 using Project.Shared.Types;
 
 namespace AssetTracker.Services
 {
-    public class ExchangeRateService(IExchangeRateApiClient exchangeRateApiClient, ApplicationDbContext dbContext)
+    public class ExchangeRateService(IExchangeRateApiClient exchangeRateApiClient,IMemoryCache cache)
     {
-        public async Task<Result<ExchangeRateHistory>> GetExchangeRateAsync(CurrencyType currencyType)
+        public async Task<Result<ExchangeRateResponse>> GetExchangeRateAsync(CurrencyType currencyType)
         {
-            var dbResult = await dbContext.ExchangeRateHistories.FirstOrDefaultAsync(e => e.Currency == currencyType && e.Date.Date == DateTime.UtcNow.Date);
-            if (dbResult != null) return Result<ExchangeRateHistory>.Success(dbResult);
+            var cacheKey = $"{currencyType}_ExchangeRate";
+            if (cache.TryGetValue(cacheKey, out ExchangeRateResponse? cached))
+            {
+                return Result<ExchangeRateResponse>.Success(cached);
+            }
 
-            var apiResult = await exchangeRateApiClient.GetExchangeRateToUSDAsync(currencyType);
+            var apiResult = await exchangeRateApiClient.FetchStandardRequestsAsync(currencyType);
             if (!apiResult.IsSuccess || apiResult.Value == null)
             {
                 return apiResult;
             }
 
-            dbContext.ExchangeRateHistories.Add(apiResult.Value);
-            await dbContext.SaveChangesAsync();
+            cache.Set(cacheKey, apiResult.Value, TimeSpan.FromMinutes(5));
 
             return apiResult;
         }

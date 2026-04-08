@@ -2,6 +2,7 @@ using Mapster;
 using Project.Data.Model;
 using Project.Shared.DTOs.Auth;
 using Project.Shared.DTOs.ExchangeRate;
+using Project.Shared.DTOs.ExchangeRate.ExchangeRateAPI;
 using Project.Shared.DTOs.FinMind.StockInfo;
 using Project.Shared.DTOs.FinMind.StockPrice;
 using Project.Shared.DTOs.Stock;
@@ -101,16 +102,15 @@ namespace AssetTracker.Tests
 
         #endregion
 
-        #region 匯率轉換為資料庫實體
+        #region 匯率 API 回應轉換為匯率回應 DTO
 
         /// <summary>
-        /// 測試匯率 API 回應轉換為匯率歷史實體
+        /// 測試 Pair API 回應轉換為匯率回應 DTO
+        /// 驗證：單一匯率應包裝為 Dictionary，BaseCode/TargetCode 正確解析為 CurrencyType
         /// 驗證：Unix 時間戳應正確轉換為 DateTime（只取日期部分）
-        /// 驗證：貨幣代碼和匯率應正確映射
-        /// 注意：BaseCode 是字串，Currency 是枚舉，Mapster 會自動嘗試解析
         /// </summary>
-        [Fact(DisplayName = "匯率回應→匯率歷史：Unix時間戳正確轉換")]
-        public void PairResponse_To_ExchangeRateHistory_ShouldMapCorrectly()
+        [Fact(DisplayName = "Pair匯率回應→匯率DTO：單一匯率包裝為Dictionary")]
+        public void PairResponse_To_ExchangeRateResponse_ShouldMapCorrectly()
         {
             // Arrange - 準備匯率 API 回應資料
             // Unix 時間戳 1705276800 對應 2024-01-15 00:00:00 UTC
@@ -118,26 +118,66 @@ namespace AssetTracker.Tests
             var pairResponse = new PairResponse
             {
                 BaseCode = "TWD",
+                TargetCode = "USD",
                 ConversionRate = 0.032m,
                 TimeLastUpdateUnix = unixTimestamp
             };
 
             // Act - 執行映射
-            var history = pairResponse.Adapt<ExchangeRateHistory>();
+            var response = pairResponse.Adapt<ExchangeRateResponse>();
 
             // Assert - 驗證欄位映射
-            // BaseCode "TWD" 會被 Mapster 自動解析為 CurrencyType.TWD 枚舉
-            Assert.Equal(CurrencyType.TWD, history.Currency);
+            Assert.Equal(CurrencyType.TWD, response.Currency);
 
-            // ConversionRate → ToUSDRate（直接映射）
-            Assert.Equal(pairResponse.ConversionRate, history.ToUSDRate);
+            // 單一匯率應包裝為只有一筆的 Dictionary
+            Assert.Single(response.ConversionRates);
+            Assert.Equal(0.032m, response.ConversionRates[CurrencyType.USD]);
 
             // TimeLastUpdateUnix 透過 DateTimeOffset.FromUnixTimeSeconds 轉換後取日期
             var expectedDate = new DateTime(2024, 1, 15);
-            Assert.Equal(expectedDate, history.Date);
+            Assert.Equal(expectedDate, response.Date);
+        }
 
-            // 被 Ignore 的欄位應維持預設值
-            Assert.Equal(0, history.Id);
+        /// <summary>
+        /// 測試 Standard API 回應轉換為匯率回應 DTO
+        /// 驗證：只保留有效的 CurrencyType，過濾掉不支援的幣別
+        /// </summary>
+        [Fact(DisplayName = "Standard匯率回應→匯率DTO：過濾有效幣別")]
+        public void StandardResponse_To_ExchangeRateResponse_ShouldMapCorrectly()
+        {
+            // Arrange - 準備匯率 API 回應資料
+            var unixTimestamp = 1705276800L;
+            var standardResponse = new StandardResponse
+            {
+                BaseCode = "USD",
+                ConversionRates = new Dictionary<string, decimal>
+                {
+                    { "TWD", 31.5m },
+                    { "JPY", 148.2m },
+                    { "USD", 1.0m },
+                    { "EUR", 0.92m },   // 不在 CurrencyType 中，應被過濾
+                    { "GBP", 0.79m }    // 不在 CurrencyType 中，應被過濾
+                },
+                TimeLastUpdateUnix = unixTimestamp
+            };
+
+            // Act - 執行映射
+            var response = standardResponse.Adapt<ExchangeRateResponse>();
+
+            // Assert - 驗證欄位映射
+            Assert.Equal(CurrencyType.USD, response.Currency);
+
+            // 只應保留 TWD、JPY、USD 三種有效幣別
+            Assert.Equal(3, response.ConversionRates.Count);
+            Assert.Equal(31.5m, response.ConversionRates[CurrencyType.TWD]);
+            Assert.Equal(148.2m, response.ConversionRates[CurrencyType.JPY]);
+            Assert.Equal(1.0m, response.ConversionRates[CurrencyType.USD]);
+
+            // 不支援的幣別不應存在
+            Assert.DoesNotContain(response.ConversionRates, kv => kv.Key.ToString() == "EUR");
+
+            var expectedDate = new DateTime(2024, 1, 15);
+            Assert.Equal(expectedDate, response.Date);
         }
 
         #endregion

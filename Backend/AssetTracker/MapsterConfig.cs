@@ -2,10 +2,12 @@
 using Project.Data.Model;
 using Project.Shared.DTOs.Auth;
 using Project.Shared.DTOs.ExchangeRate;
+using Project.Shared.DTOs.ExchangeRate.ExchangeRateAPI;
 using Project.Shared.DTOs.FinMind.StockInfo;
 using Project.Shared.DTOs.FinMind.StockPrice;
 using Project.Shared.DTOs.Stock;
 using Project.Shared.DTOs.Transaction;
+using Project.Shared.Types;
 
 namespace AssetTracker
 {
@@ -46,14 +48,20 @@ namespace AssetTracker
                 .Ignore(d => d.UpdatedAt!)
                 .Ignore(d => d.DeletedAt!);
 
-            TypeAdapterConfig<PairResponse, ExchangeRateHistory>.NewConfig()
-                .Map(d => d.Currency, s => s.BaseCode)
-                .Map(d => d.ToUSDRate, s => s.ConversionRate)
-                .Map(d => d.Date, s => DateTimeOffset.FromUnixTimeSeconds(s.TimeLastUpdateUnix).UtcDateTime.Date)
-                .Ignore(d => d.Id)
-                .Ignore(d => d.CreatedAt)
-                .Ignore(d => d.UpdatedAt!)
-                .Ignore(d => d.DeletedAt!);
+            TypeAdapterConfig<PairResponse, ExchangeRateResponse>.NewConfig()
+                .Map(d => d.Currency, s => Enum.Parse<CurrencyType>(s.BaseCode))
+                .Map(d => d.ConversionRates, s => new Dictionary<CurrencyType, decimal>
+                {
+                    { Enum.Parse<CurrencyType>(s.TargetCode), s.ConversionRate }
+                })
+                .Map(d => d.Date, s => DateTimeOffset.FromUnixTimeSeconds(s.TimeLastUpdateUnix).UtcDateTime.Date);
+
+            TypeAdapterConfig<StandardResponse, ExchangeRateResponse>.NewConfig()
+                .Map(d => d.Currency, s => Enum.Parse<CurrencyType>(s.BaseCode))
+                .Map(d => d.ConversionRates, s => s.ConversionRates
+                    .Where(kv => Enum.IsDefined(typeof(CurrencyType), kv.Key))
+                    .ToDictionary(kv => Enum.Parse<CurrencyType>(kv.Key), kv => kv.Value))
+                .Map(d => d.Date, s => DateTimeOffset.FromUnixTimeSeconds(s.TimeLastUpdateUnix).UtcDateTime.Date);
 
             #endregion
 

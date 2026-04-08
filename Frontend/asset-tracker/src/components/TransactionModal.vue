@@ -22,7 +22,8 @@ import { EditRound, AddOutlined } from '@vicons/material'
 import type { TransactionRequest, TransactionResponse } from '@/types/transaction'
 import { create, updateTransaction } from '@/api/transaction'
 import { marketColors, transactionTypeColors } from '@/utils/colors'
-import type { CurrencyType, MarketType } from '@/types/common'
+import { marketCurrencyMap } from '@/constants/common'
+import type { MarketType } from '@/types/common'
 
 const props = defineProps<{
   transaction: TransactionResponse | null
@@ -55,11 +56,6 @@ const rules: FormRules = {
 }
 const loading = ref(false)
 
-const marketCurrencyMap: Record<MarketType, CurrencyType> = {
-  TW: 'TWD',
-  US: 'USD',
-  JP: 'JPY',
-}
 
 const markets = (['TW', 'US', 'JP'] as MarketType[]).map((value) => ({
   value,
@@ -179,9 +175,7 @@ watch(
                 {{ market.value }}
               </n-radio-button>
             </n-radio-group>
-            <n-text depth="3" class="text-xs">
-              交易幣別：{{ currencyHint }}
-            </n-text>
+            <n-text depth="3" class="text-xs"> 交易幣別：{{ currencyHint }} </n-text>
           </div>
         </div>
       </div>

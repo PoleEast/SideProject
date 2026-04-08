@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed, h, onMounted, ref } from 'vue'
+
 import {
   NDataTable,
   NTag,
@@ -10,20 +12,12 @@ import {
   NCard,
   NTooltip,
   NIcon,
+  NRadioGroup,
+  NRadioButton,
 } from 'naive-ui'
-import { computed, h, onMounted, ref } from 'vue'
 import type { DataTableColumns } from 'naive-ui'
-import type { MarketType } from '@/types/common'
-import type { PositionResponse } from '@/types/Position'
-import type { EChartsOption } from 'echarts'
-import { marketColors } from '@/utils/colors'
-import { HelpOutlineRound } from '@vicons/material'
-import { getPosition } from '@/api/Position'
-import VChart from 'vue-echarts'
 
-import { use } from 'echarts/core'
-import { PieChart } from 'echarts/charts'
-import { CanvasRenderer } from 'echarts/renderers'
+import VChart from 'vue-echarts'
 import {
   TooltipComponent,
   LegendComponent,
@@ -31,6 +25,19 @@ import {
   TransformComponent,
   GraphicComponent,
 } from 'echarts/components'
+import type { EChartsOption } from 'echarts'
+import { use } from 'echarts/core'
+import { PieChart } from 'echarts/charts'
+import { CanvasRenderer } from 'echarts/renderers'
+
+import { HelpOutlineRound } from '@vicons/material'
+
+import { currencies, marketCurrencyMap } from '@/constants/common'
+import type { CurrencyType, MarketType } from '@/types/common'
+import type { EnrichedPosition, PositionResponse } from '@/types/Position'
+import { marketColors } from '@/utils/colors'
+import { getPosition } from '@/api/Position'
+import { getExchangeRate } from '@/api/exchangeRate'
 
 use([
   CanvasRenderer,
@@ -49,15 +56,17 @@ const stockChartRef = ref<InstanceType<typeof VChart>>()
 const isHoveringChart = ref(false)
 const errorMessage = ref('')
 const isLoading = ref(false)
-const positions = ref<PositionResponse[]>([])
+const positions = ref<EnrichedPosition[]>([])
 // 追蹤市場圓餅圖目前被點擊選取的市場，用於 toggle 取消
 const selectedMarket = ref<string | null>(null)
 // 圓餅圖中央顯示的總金額，會隨 legend 篩選和扇區點擊動態更新
 const marketTotal = ref(0)
+// 使用者選擇的顯示幣別
+const displayCurrency = ref<CurrencyType>(currencies[0])
 
 // ---- Table ----
 
-const columns: DataTableColumns<PositionResponse> = [
+const columns = computed<DataTableColumns<EnrichedPosition>>(() => [
   {
     title: '市場',
     key: 'stockMarket',
@@ -90,7 +99,7 @@ const columns: DataTableColumns<PositionResponse> = [
   {
     title: () =>
       h('span', { style: 'display: flex; align-items: center; gap: 4px' }, [
-        '總成本',
+        '總成本(原)',
         h(
           NTooltip,
           { trigger: 'hover' },
@@ -121,7 +130,17 @@ const columns: DataTableColumns<PositionResponse> = [
         maximumFractionDigits: 2,
       }),
   },
-]
+  {
+    title: `換算（${displayCurrency.value}）`,
+    key: 'convertedTotalCost',
+    sorter: (a, b) => a.convertedTotalCost - b.convertedTotalCost,
+    render: (row) =>
+      row.convertedTotalCost.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+  },
+])
 
 // ---- Chart Dataset ----
 
@@ -130,7 +149,7 @@ const marketDataSet = computed(() => {
   const map = new Map<MarketType, number>()
 
   positions.value.forEach((pos) => {
-    map.set(pos.stockMarket, (map.get(pos.stockMarket) ?? 0) + pos.averagePrice * pos.quantity)
+    map.set(pos.stockMarket, (map.get(pos.stockMarket) ?? 0) + pos.convertedTotalCost)
   })
 
   return [['市場', '總額'], ...map.entries()]
@@ -139,7 +158,7 @@ const marketDataSet = computed(() => {
 // 個股圓餅圖的 dataset
 const stockDataSet = computed(() => [
   ['股號', '總額'],
-  ...positions.value.map((pos) => [pos.stockCode, pos.averagePrice * pos.quantity]),
+  ...positions.value.map((pos) => [pos.stockCode, pos.convertedTotalCost]),
 ])
 
 // ---- Chart Options ----
@@ -150,7 +169,7 @@ const marketChartOption = computed<EChartsOption>(() => ({
   },
   legend: {
     orient: 'vertical',
-    right: 10,
+    right: 5,
     top: 'center',
     selectedMode: 'multiple',
     formatter: (name) => {
@@ -171,27 +190,31 @@ const marketChartOption = computed<EChartsOption>(() => ({
     },
   },
   // 圓餅圖中央文字，hover 時淡出讓 emphasis label 顯示百分比
-  graphic: [
-    {
-      type: 'text',
-      left: '28%',
-      top: 'center',
-      invisible: isHoveringChart.value,
-      style: {
-        text: marketTotal.value.toLocaleString(),
-        fontSize: 24,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        opacity: isHoveringChart.value ? 0 : 1,
+  graphic: (() => {
+    const text = marketTotal.value.toLocaleString()
+    const fontSize = text.length > 12 ? 14 : text.length > 9 ? 18 : 24
+    return [
+      {
+        type: 'text',
+        left: 'center',
+        top: 'center',
+        invisible: isHoveringChart.value,
+        style: {
+          text,
+          fontSize,
+          fontWeight: 'bold',
+          opacity: isHoveringChart.value ? 0 : 1,
+        },
+        silent: false,
+        transition: ['style'],
+        transitionDuration: 500,
       },
-      transition: ['style'],
-      transitionDuration: 500,
-    },
-  ],
+    ]
+  })(),
   series: [
     {
       type: 'pie',
-      center: ['40%', '50%'],
+      center: ['50%', '50%'],
       radius: ['40%', '70%'],
       avoidLabelOverlap: false,
       itemStyle: {
@@ -287,6 +310,15 @@ const stockChartOption = computed<EChartsOption>(() => ({
   },
 }))
 
+// ---- Helper ----
+const calcConvertedTotalCost = (
+  position: PositionResponse,
+  conversionRates: Record<CurrencyType, number>,
+) => {
+  const currency = marketCurrencyMap[position.stockMarket]
+  return (position.averagePrice * position.quantity) / conversionRates[currency]
+}
+
 // ---- Event Handlers ----
 
 const handleChartHover = (hovering: boolean) => (isHoveringChart.value = hovering)
@@ -301,7 +333,7 @@ const handleMarketLegendChange = (params: { name: string; selected: Record<strin
 
   marketTotal.value = positions.value
     .filter((p) => params.selected[p.stockMarket])
-    .reduce((sum, pos) => sum + pos.averagePrice * pos.quantity, 0)
+    .reduce((sum, pos) => sum + pos.convertedTotalCost, 0)
 
   marketChartRef.value?.dispatchAction({
     type: 'unselect',
@@ -332,10 +364,7 @@ const handleChartClick = (params: { componentType: string; name: string; dataInd
 
   if (selectedMarket.value === params.name) {
     selectedMarket.value = null
-    marketTotal.value = positions.value.reduce(
-      (sum, pos) => sum + pos.averagePrice * pos.quantity,
-      0,
-    )
+    marketTotal.value = positions.value.reduce((sum, pos) => sum + pos.convertedTotalCost, 0)
     stockChartRef.value?.dispatchAction({ type: 'legendAllSelect' })
     return
   }
@@ -348,7 +377,7 @@ const handleChartClick = (params: { componentType: string; name: string; dataInd
 
   marketTotal.value = positions.value
     .filter((p) => p.stockMarket === params.name)
-    .reduce((sum, pos) => sum + pos.averagePrice * pos.quantity, 0)
+    .reduce((sum, pos) => sum + pos.convertedTotalCost, 0)
 
   stockChartRef.value?.dispatchAction({
     type: 'legendAllSelect',
@@ -362,23 +391,55 @@ const handleChartClick = (params: { componentType: string; name: string; dataInd
   })
 }
 
+const handleCurrencyChange = async () => {
+  isLoading.value = true
+  try {
+    const exchangeRateResult = await getExchangeRate(displayCurrency.value)
+
+    if (!exchangeRateResult.ok) {
+      errorMessage.value = exchangeRateResult.message
+      return
+    }
+
+    positions.value.forEach(
+      (p) =>
+        (p.convertedTotalCost = calcConvertedTotalCost(p, exchangeRateResult.data.conversionRates)),
+    )
+
+    marketTotal.value = positions.value.reduce((sum, pos) => sum + pos.convertedTotalCost, 0)
+  } catch {
+    errorMessage.value = '網路連線發生問題，請稍後再試'
+  } finally {
+    isLoading.value = false
+  }
+}
+
 // ---- Lifecycle ----
 
 onMounted(async () => {
   isLoading.value = true
   try {
-    const result = await getPosition()
+    const [positionResult, exchangeRateResult] = await Promise.all([
+      getPosition(),
+      getExchangeRate(displayCurrency.value),
+    ])
 
-    if (!result.ok) {
-      errorMessage.value = result.message
+    if (!positionResult.ok) {
+      errorMessage.value = positionResult.message
       return
     }
 
-    positions.value = result.data
-    marketTotal.value = positions.value.reduce(
-      (sum, pos) => sum + pos.averagePrice * pos.quantity,
-      0,
-    )
+    if (!exchangeRateResult.ok) {
+      errorMessage.value = exchangeRateResult.message
+      return
+    }
+
+    positions.value = positionResult.data.map((p) => ({
+      ...p,
+      convertedTotalCost: calcConvertedTotalCost(p, exchangeRateResult.data.conversionRates),
+    }))
+
+    marketTotal.value = positions.value.reduce((sum, pos) => sum + pos.convertedTotalCost, 0)
   } catch {
     errorMessage.value = '網路連線發生問題，請稍後再試'
   } finally {
@@ -389,10 +450,15 @@ onMounted(async () => {
 
 <template>
   <!-- 頁首 -->
-  <div class="mb-6">
+  <div class="mb-6 flex items-center justify-between">
     <n-h2 class="m-0!">
       <n-text type="primary">持倉總覽</n-text>
     </n-h2>
+    <n-radio-group v-model:value="displayCurrency" @update:value="handleCurrencyChange">
+      <n-radio-button v-for="currency in currencies" :key="currency" :value="currency">
+        {{ currency }}
+      </n-radio-button>
+    </n-radio-group>
   </div>
 
   <!-- 載入中 -->

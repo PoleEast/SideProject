@@ -6,3 +6,7 @@ export interface PositionResponse {
   quantity: number
   averagePrice: number
 }
+
+export interface EnrichedPosition extends PositionResponse {
+  convertedTotalCost: number
+}

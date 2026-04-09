@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, h, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import {
   NDataTable,
@@ -48,6 +49,8 @@ use([
   TransformComponent,
   GraphicComponent,
 ])
+
+const router = useRouter()
 
 // ---- State ----
 
@@ -142,6 +145,15 @@ const columns = computed<DataTableColumns<EnrichedPosition>>(() => [
   },
 ])
 
+const rowProps = (row: EnrichedPosition) => ({
+  style: 'cursor: pointer',
+  onClick: () => {
+    router.push({
+      path: '/transactions',
+      query: { stockCode: row.stockCode, stockMarket: row.stockMarket },
+    })
+  },
+})
 // ---- Chart Dataset ----
 
 // 將持倉資料按市場分組加總，作為市場圓餅圖的 dataset
@@ -494,7 +506,13 @@ onMounted(async () => {
 
       <!-- 持倉表格卡片 -->
       <n-card title="持倉明細" size="small" bordered>
-        <n-data-table :columns="columns" :data="positions" :bordered="false" striped />
+        <n-data-table
+          :columns="columns"
+          :data="positions"
+          :row-props="rowProps"
+          :bordered="false"
+          striped
+        />
       </n-card>
     </template>
 

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { computed, h, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+
 import {
   NButton,
   NDataTable,
@@ -16,24 +19,26 @@ import {
   NSpin,
   useMessage,
 } from 'naive-ui'
-import { computed, h, onMounted, ref } from 'vue'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
+
 import { AddRound, EditRound, DeleteRound, SearchRound } from '@vicons/material'
+
 import TransactionModal from '@/components/TransactionModal.vue'
 import type { TransactionResponse } from '@/types/transaction'
 import { deleteTransaction, getTransactions } from '@/api/transaction'
 import { marketColors } from '@/utils/colors'
 
 const message = useMessage()
+const route = useRoute()
 
 const transactions = ref<TransactionResponse[]>([])
 const errorMessage = ref<string | null>(null)
 const isLoading = ref(false)
 
 // 篩選
-const filterMarket = ref<string | null>(null)
+const filterMarket = ref<string | null>((route.query.stockMarket as string) ?? null)
 const filterType = ref<string | null>(null)
-const filterCode = ref('')
+const filterCode = ref((route.query.stockCode as string) ?? '')
 
 const marketOptions: SelectOption[] = [
   { label: '全部市場', value: undefined },

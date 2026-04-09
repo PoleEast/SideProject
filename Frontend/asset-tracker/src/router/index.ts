@@ -1,5 +1,5 @@
 import PnlView from '@/views/PnlView.vue'
-import PositionsView from '@/views/PositionsView.vue'
+import PositionsView from '@/views/positions/PositionsView.vue'
 import TransactionsView from '@/views/TransactionsView.vue'
 import { createRouter, createWebHistory } from 'vue-router'
 

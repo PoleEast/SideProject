@@ -41,7 +41,6 @@ const filterType = ref<string | null>(null)
 const filterCode = ref((route.query.stockCode as string) ?? '')
 
 const marketOptions: SelectOption[] = [
-  { label: '全部市場', value: undefined },
   { label: '台股 TW', value: 'TW' },
   { label: '美股 US', value: 'US' },
   { label: '日股 JP', value: 'JP' },
@@ -63,7 +62,10 @@ const filterTransactions = computed<TransactionResponse[]>(() => {
   }
 
   const codeFilter = (transaction: TransactionResponse) => {
-    return !filterCode.value || transaction.stockCode.includes(filterCode.value.toUpperCase())
+    return (
+      !filterCode.value ||
+      transaction.stockCode.toUpperCase().includes(filterCode.value.toUpperCase())
+    )
   }
 
   return transactions.value.filter(
@@ -76,17 +78,17 @@ const filterTransactions = computed<TransactionResponse[]>(() => {
 const showModal = ref(false)
 const editingTransaction = ref<TransactionResponse | null>(null)
 
-function openCreate() {
+const openCreate = () => {
   editingTransaction.value = null
   showModal.value = true
 }
 
-function openEdit(transaction: TransactionResponse) {
+const openEdit = (transaction: TransactionResponse) => {
   editingTransaction.value = transaction
   showModal.value = true
 }
 
-async function handleDelete(id: number) {
+const handleDelete = async (id: number) => {
   try {
     const result = await deleteTransaction(id)
 
@@ -172,7 +174,7 @@ const columns: DataTableColumns<TransactionResponse> = [
   },
 ]
 
-async function loadTransactions() {
+const loadTransactions = async () => {
   isLoading.value = true
 
   try {

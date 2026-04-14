@@ -7,6 +7,16 @@ export interface PositionResponse {
   averagePrice: number
 }
 
+export interface RealizedPnlResponse {
+  id: number
+  stockMarket: MarketType
+  stockCode: string
+  date: string
+  sellQuantity: number
+  sellPrice: number
+  buyPrice: number
+}
+
 export interface EnrichedPosition extends PositionResponse {
   convertedTotalCost: number
 }

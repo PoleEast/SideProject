@@ -56,7 +56,6 @@ const rules: FormRules = {
 }
 const loading = ref(false)
 
-
 const markets = (['TW', 'US', 'JP'] as MarketType[]).map((value) => ({
   value,
   style: {

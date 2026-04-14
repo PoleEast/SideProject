@@ -6,7 +6,12 @@ export const marketColors: Record<MarketType, { primary: string; secondary: stri
   JP: { primary: '#8b0000', secondary: '#ffffff' },
 }
 
-export const transactionTypeColors: Record<TransactionType, { primary: string }> = {
-  Buy: { primary: '#d03050' },
-  Sell: { primary: '#18a058' },
+export const transactionTypeColors: Record<TransactionType, { primary: string; rgb: string }> = {
+  Buy: { primary: '#d03050', rgb: '208, 48, 80' },
+  Sell: { primary: '#18a058', rgb: '24, 160, 88' },
+}
+
+export const pnlColors = {
+  profit: transactionTypeColors.Buy,
+  loss: transactionTypeColors.Sell,
 }

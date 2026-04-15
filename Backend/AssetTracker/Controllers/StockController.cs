@@ -1,6 +1,7 @@
 ﻿using AssetTracker.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Project.Data.Model;
 using Project.Shared.Types;
 using System.Net;
@@ -23,7 +24,7 @@ namespace AssetTracker.Controllers
         /// <param name="code">股票代碼（如：2330、AAPL、7203）</param>
         /// <param name="date">查詢日期</param>
         [HttpGet]
-        public async Task<ActionResult<StockPriceHistory>> GetStockPrice(StockMarketType stockMarketType, string code, DateTime date)
+        public async Task<ActionResult<StockPriceHistory>> GetStockPrice([BindRequired] StockMarketType stockMarketType, string code, [BindRequired] DateTime date)
         {
             var result = await stockService.GetStockPriceAsync(stockMarketType, code, date);
 

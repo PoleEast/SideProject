@@ -10,8 +10,13 @@ namespace AssetTracker.Services
 {
     public class StockService(IStockApiClients stockApiClients, ApplicationDbContext dbContext)
     {
-        public async Task<Result<StockPriceHistory>> GetStockPriceAsync(StockMarketType market, string code, DateTime date)
+        public async Task<Result<StockPriceHistory>> GetLatestStockPriceAsync(StockMarketType market, string code, DateTime asOf)
         {
+            if (asOf.Date > DateTime.Today)
+            {
+                return Result<StockPriceHistory>.Failure(ResultCode.BusinessRuleViolation, "查詢日期不可大於今天");
+            }
+
             var normalizedCode = code.Trim().ToUpperInvariant();
 
             var stockInfo = await stockApiClients.GetStockInfoAsync(market, normalizedCode);
@@ -20,14 +25,15 @@ namespace AssetTracker.Services
                 return Result<StockPriceHistory>.Failure(ResultCode.BusinessRuleViolation, "不支援此檔股票");
             }
 
-            var dbResult = await GetStockPriceFromDBAsync(stockInfo.Value.Exchange, normalizedCode, date);
+            var existing = await GetStockPriceFromDBAsync(stockInfo.Value.Exchange, normalizedCode, asOf);
 
-            if (dbResult.IsSuccess)
+            if (existing != null)
             {
-                return dbResult;
+                return Result<StockPriceHistory>.Success(existing);
             }
 
-            var apiResult = await stockApiClients.GetStockPriceAsync(market, normalizedCode, date, date);
+            var startDate = asOf.AddDays(-7);
+            var apiResult = await stockApiClients.GetStockPriceAsync(market, normalizedCode, startDate, asOf);
 
             if (!apiResult.IsSuccess || apiResult.Value == null)
             {
@@ -36,26 +42,26 @@ namespace AssetTracker.Services
 
             if (apiResult.Value.Count < 1)
             {
-                return Result<StockPriceHistory>.Failure(ResultCode.NotFound, "查無此日的股價資料");
+                return Result<StockPriceHistory>.Failure(ResultCode.NotFound, "查無該期間的股價資料");
             }
 
-            StockPriceHistory stockPriceHistory = apiResult.Value.First();
+            StockPriceHistory stockPriceHistory = apiResult.Value.OrderBy(v => v.Date).Last();
 
-            dbContext.Add(stockPriceHistory);
-            await dbContext.SaveChangesAsync();
+            var duplicate = await GetStockPriceFromDBAsync(stockInfo.Value.Exchange, normalizedCode, stockPriceHistory.Date);
+
+            if (duplicate == null)
+            {
+                dbContext.Add(stockPriceHistory);
+                await dbContext.SaveChangesAsync();
+            }
+
             return Result<StockPriceHistory>.Success(stockPriceHistory);
         }
 
-        private async Task<Result<StockPriceHistory>> GetStockPriceFromDBAsync(string exchange, string code, DateTime date)
+        private async Task<StockPriceHistory?> GetStockPriceFromDBAsync(string exchange, string code, DateTime date)
         {
-            var stockPriceHistory = await dbContext.StockPriceHistories.FirstOrDefaultAsync(t => t.Exchange == exchange && t.Code == code && t.Date.Date == date.Date);
-
-            if (stockPriceHistory == null)
-            {
-                return Result<StockPriceHistory>.Failure(ResultCode.NotFound, "資料庫查無此日的股票價格");
-            }
-
-            return Result<StockPriceHistory>.Success(stockPriceHistory);
+            return await dbContext.StockPriceHistories
+                .FirstOrDefaultAsync(t => t.Exchange == exchange && t.Code == code && t.Date.Date == date.Date);
         }
     }
 }

@@ -270,6 +270,4 @@ onMounted(loadTransactions)
     :transaction="editingTransaction"
     @refresh="loadTransactions"
   />
-
-  <!-- TODO: 增加交易熱點圖 -->
 </template>

@@ -18,33 +18,49 @@ import {
   NStatistic,
   NTag,
   NText,
+  NRadioGroup,
+  NRadioButton,
   type DataTableColumns,
   type SelectOption,
 } from 'naive-ui'
 import { SearchRound } from '@vicons/material'
 
 import { getRealizedPnl } from '@/api/Position'
-import type { MarketType } from '@/types/common'
-import type { RealizedPnlResponse } from '@/types/Position'
-import { marketColors, pnlColors } from '@/utils/colors'
+import type { CurrencyType, MarketType } from '@/types/common'
+import type { EnrichedRealizedPnl, RealizedPnlResponse } from '@/types/Position'
+import { getPnlColor, marketColors, pnlColors } from '@/utils/colors'
+import { renderCurrencyHintTitle } from '@/utils/tableHelpers'
+import { getExchangeRate } from '@/api/exchangeRate'
+import { currencies, marketCurrencyMap } from '@/constants/common'
 
 const router = useRouter()
 
 // ---- State ----
 
 const realizedPnl = ref<RealizedPnlResponse[]>([])
+const conversionRates = ref<Record<CurrencyType, number>>()
 const isLoading = ref<boolean>(true)
 const errorMessage = ref('')
+const displayCurrency = ref<CurrencyType>('TWD')
+
+const enrichedRealizedPnl = computed<EnrichedRealizedPnl[]>(() =>
+  realizedPnl.value.map((r) => {
+    const pnl = (r.sellPrice - r.buyPrice) * r.sellQuantity
+    const rate = conversionRates.value?.[marketCurrencyMap[r.stockMarket]]
+    return {
+      ...r,
+      pnl,
+      pnlRate: pnl / (r.buyPrice * r.sellQuantity),
+      convertedPnl: rate ? pnl / rate : undefined,
+    }
+  }),
+)
 
 // ---- Helper ----
 
-const calcPnl = (record: RealizedPnlResponse) =>
-  (record.sellPrice - record.buyPrice) * record.sellQuantity
+const formatPnl = (value: number | undefined) => {
+  if (value === undefined) return '-'
 
-const calcPnlRate = (record: RealizedPnlResponse) =>
-  calcPnl(record) / (record.buyPrice * record.sellQuantity)
-
-const formatPnl = (value: number) => {
   const prefix = value > 0 ? '+' : ''
   return (
     prefix +
@@ -66,24 +82,26 @@ const marketOptions: SelectOption[] = [
 ]
 
 const filteredRecords = computed(() => {
-  const marketFilter = (record: RealizedPnlResponse) => {
+  const marketFilter = (record: EnrichedRealizedPnl) => {
     return !filterMarket.value || record.stockMarket === filterMarket.value
   }
 
-  const codeFilter = (record: RealizedPnlResponse) => {
+  const codeFilter = (record: EnrichedRealizedPnl) => {
     return (
       !filterCode.value || record.stockCode.toUpperCase().includes(filterCode.value.toUpperCase())
     )
   }
 
-  return realizedPnl.value.filter((record) => marketFilter(record) && codeFilter(record))
+  return enrichedRealizedPnl.value.filter((record) => marketFilter(record) && codeFilter(record))
 })
 
 // ---- 統計 ----
 
-const totalPnl = computed(() =>
-  filteredRecords.value.reduce((sum, record) => sum + calcPnl(record), 0),
-)
+const totalPnl = computed<number | undefined>(() => {
+  if (filteredRecords.value.some((r) => r.convertedPnl === undefined)) return
+
+  return filteredRecords.value.reduce((sum, record) => sum + record.convertedPnl!, 0)
+})
 const winCount = computed(
   () => filteredRecords.value.filter((record) => record.sellPrice > record.buyPrice).length,
 )
@@ -93,7 +111,7 @@ const lossCount = computed(
 
 // ---- Table ----
 
-const columns: DataTableColumns<RealizedPnlResponse> = [
+const columns: DataTableColumns<EnrichedRealizedPnl> = [
   { title: '日期', key: 'date', width: 110, render: (row) => row.date.slice(0, 10) },
   {
     title: '市場',
@@ -112,18 +130,41 @@ const columns: DataTableColumns<RealizedPnlResponse> = [
     },
   },
   { title: '股票代碼', key: 'stockCode', width: 110 },
-  { title: '買入價格', key: 'buyPrice', width: 100 },
-  { title: '賣出價格', key: 'sellPrice', width: 100 },
+  {
+    title: () => renderCurrencyHintTitle('買入價格'),
+    key: 'buyPrice',
+    width: 120,
+  },
+  {
+    title: () => renderCurrencyHintTitle('賣出價格'),
+    key: 'sellPrice',
+    width: 120,
+  },
   { title: '數量', key: 'sellQuantity', width: 80 },
   {
-    title: '已實現損益',
+    title: () => renderCurrencyHintTitle('已實現損益(原)'),
     key: 'pnl',
-    width: 120,
+    width: 140,
     render: (row) => {
-      const pnl = calcPnl(row)
-      const color =
-        pnl > 0 ? pnlColors.profit.primary : pnl < 0 ? pnlColors.loss.primary : undefined
-      return h(NText, { strong: true, style: { color } }, { default: () => formatPnl(pnl) })
+      const color = getPnlColor(row.pnl)
+      return h(NText, { strong: true, style: { color } }, { default: () => formatPnl(row.pnl) })
+    },
+  },
+  {
+    title: () => renderCurrencyHintTitle('已實現損益'),
+    key: 'convertedPnl',
+    width: 140,
+    render: (row) => {
+      if (row.convertedPnl === undefined)
+        return h(NText, { strong: true }, { default: () => '無法計算' })
+
+      const color = getPnlColor(row.pnl)
+
+      return h(
+        NText,
+        { strong: true, style: { color } },
+        { default: () => formatPnl(row.convertedPnl!) },
+      )
     },
   },
   {
@@ -131,23 +172,20 @@ const columns: DataTableColumns<RealizedPnlResponse> = [
     key: 'pnlRate',
     width: 120,
     render: (row) => {
-      const rate = calcPnlRate(row) * 100
-      const color =
-        rate > 0 ? pnlColors.profit.primary : rate < 0 ? pnlColors.loss.primary : undefined
+      const rate = row.pnlRate * 100
+      const color = getPnlColor(row.pnl)
       const text = `${rate > 0 ? '+' : ''}${rate.toFixed(2)} %`
       return h(NText, { strong: true, style: { color } }, { default: () => text })
     },
   },
 ]
 
-const rowClassName = (row: RealizedPnlResponse) => {
-  const pnl = calcPnl(row)
-  return pnl > 0 ? 'row-profit' : pnl < 0 ? 'row-loss' : ''
+const rowClassName = (row: EnrichedRealizedPnl) => {
+  return row.pnl > 0 ? 'row-profit' : row.pnl < 0 ? 'row-loss' : ''
 }
 
-const rowProps = (row: RealizedPnlResponse) => {
-  const pnl = calcPnl(row)
-  const rowRgb = pnl > 0 ? pnlColors.profit.rgb : pnl < 0 ? pnlColors.loss.rgb : ''
+const rowProps = (row: EnrichedRealizedPnl) => {
+  const rowRgb = row.pnl > 0 ? pnlColors.profit.rgb : row.pnl < 0 ? pnlColors.loss.rgb : ''
   return {
     style: {
       cursor: 'pointer',
@@ -162,20 +200,19 @@ const rowProps = (row: RealizedPnlResponse) => {
   }
 }
 
-// ---- Lifecycle ----
+// ---- Event Handlers ----
 
-const loadRealizedPnl = async () => {
+const handleCurrencyChange = async () => {
   isLoading.value = true
-
   try {
-    const result = await getRealizedPnl()
+    const exchangeRateResult = await getExchangeRate(displayCurrency.value)
 
-    if (!result.ok) {
-      errorMessage.value = result.message
+    if (!exchangeRateResult.ok) {
+      errorMessage.value = exchangeRateResult.message
       return
     }
 
-    realizedPnl.value = result.data
+    conversionRates.value = exchangeRateResult.data.conversionRates
   } catch {
     errorMessage.value = '網路連線發生問題，請稍後再試'
   } finally {
@@ -183,7 +220,35 @@ const loadRealizedPnl = async () => {
   }
 }
 
-onMounted(loadRealizedPnl)
+// ---- Lifecycle ----
+
+onMounted(async () => {
+  isLoading.value = true
+
+  try {
+    const [realizedPnlResult, exchangeRateResult] = await Promise.all([
+      getRealizedPnl(),
+      getExchangeRate(displayCurrency.value),
+    ])
+
+    if (!realizedPnlResult.ok) {
+      errorMessage.value = realizedPnlResult.message
+      return
+    }
+
+    if (!exchangeRateResult.ok) {
+      errorMessage.value = exchangeRateResult.message
+      return
+    }
+
+    realizedPnl.value = realizedPnlResult.data
+    conversionRates.value = exchangeRateResult.data.conversionRates
+  } catch {
+    errorMessage.value = '網路連線發生問題，請稍後再試'
+  } finally {
+    isLoading.value = false
+  }
+})
 </script>
 
 <template>
@@ -192,6 +257,11 @@ onMounted(loadRealizedPnl)
     <n-h2 class="m-0!">
       <n-text type="primary">損益分析</n-text>
     </n-h2>
+    <n-radio-group v-model:value="displayCurrency" @update:value="handleCurrencyChange">
+      <n-radio-button v-for="currency in currencies" :key="currency" :value="currency">
+        {{ currency }}
+      </n-radio-button>
+    </n-radio-group>
   </div>
 
   <!-- 統計卡片 -->
@@ -219,16 +289,12 @@ onMounted(loadRealizedPnl)
         <n-statistic label="已實現損益總計">
           <n-text
             :style="{
-              color:
-                totalPnl > 0
-                  ? pnlColors.profit.primary
-                  : totalPnl < 0
-                    ? pnlColors.loss.primary
-                    : undefined,
+              color: getPnlColor(totalPnl),
             }"
             class="text-4xl font-bold"
           >
             {{ formatPnl(totalPnl) }}
+            <n-text depth="3" class="ml-1 text-lg font-normal">{{ displayCurrency }}</n-text>
           </n-text>
         </n-statistic>
       </n-card>
@@ -274,7 +340,7 @@ onMounted(loadRealizedPnl)
     </n-card>
 
     <!-- 空資料 -->
-    <div v-else-if="realizedPnl.length === 0" class="flex justify-center py-20">
+    <div v-else-if="enrichedRealizedPnl.length === 0" class="flex justify-center py-20">
       <n-empty description="尚無已實現損益，賣出持股後就會在這裡顯示！" />
     </div>
 

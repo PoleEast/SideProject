@@ -15,3 +15,10 @@ export const pnlColors = {
   profit: transactionTypeColors.Buy,
   loss: transactionTypeColors.Sell,
 }
+
+export const getPnlColor = (value: number | undefined): string | undefined => {
+  if (value === undefined) return undefined
+  if (value > 0) return pnlColors.profit.primary
+  if (value < 0) return pnlColors.loss.primary
+  return undefined
+}

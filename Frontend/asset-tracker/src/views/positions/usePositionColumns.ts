@@ -1,12 +1,12 @@
 import { computed, h, type Ref } from 'vue'
 import type { Router } from 'vue-router'
 
-import { NIcon, NTag, NTooltip, type DataTableColumns } from 'naive-ui'
-import { HelpOutlineRound } from '@vicons/material'
+import { NTag, type DataTableColumns } from 'naive-ui'
 
 import type { CurrencyType } from '@/types/common'
 import type { EnrichedPosition } from '@/types/Position'
 import { marketColors } from '@/utils/colors'
+import { renderCurrencyHintTitle } from '@/utils/tableHelpers'
 
 export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: Router) => {
   const columns = computed<DataTableColumns<EnrichedPosition>>(() => [
@@ -40,31 +40,7 @@ export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: R
       render: (row) => row.averagePrice.toLocaleString(),
     },
     {
-      title: () =>
-        h('span', { style: 'display: flex; align-items: center; gap: 4px' }, [
-          '總成本(原)',
-          h(
-            NTooltip,
-            { trigger: 'hover' },
-            {
-              trigger: () =>
-                h(
-                  NIcon,
-                  { size: 16, style: 'cursor: help; opacity: 0.5' },
-                  { default: () => h(HelpOutlineRound) },
-                ),
-              default: () => [
-                '幣別由市場自動決定',
-                h('br'),
-                '台股 → 新台幣（TWD）',
-                h('br'),
-                '美股 → 美元（USD）',
-                h('br'),
-                '日股 → 日圓（JPY）',
-              ],
-            },
-          ),
-        ]),
+      title: () => renderCurrencyHintTitle('總成本(原)'),
       key: 'totalCost',
       sorter: (a, b) => a.averagePrice * a.quantity - b.averagePrice * b.quantity,
       render: (row) =>

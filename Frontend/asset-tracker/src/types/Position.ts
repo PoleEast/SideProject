@@ -20,3 +20,9 @@ export interface RealizedPnlResponse {
 export interface EnrichedPosition extends PositionResponse {
   convertedTotalCost: number
 }
+
+export interface EnrichedRealizedPnl extends RealizedPnlResponse {
+  pnl: number
+  convertedPnl: number | undefined
+  pnlRate: number
+}

@@ -1,7 +1,4 @@
 ﻿using Project.Shared.Types;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Project.Shared.DTOs.ExchangeRate
 {

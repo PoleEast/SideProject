@@ -5,7 +5,6 @@ using Project.Data.Model;
 using Project.Shared.DTOs;
 using Project.Shared.DTOs.Auth;
 using Project.Shared.Types;
-using System.Net;
 
 namespace AssetTracker.Services
 {

@@ -2,7 +2,6 @@
 using Project.Shared.DTOs;
 using Project.Shared.DTOs.Stock;
 using Project.Shared.Types;
-using static AssetTracker.Common.StockConfig;
 
 namespace AssetTracker.ApiClients
 {

@@ -1,11 +1,8 @@
 ﻿using AssetTracker.Services;
-using Azure.Core;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Project.Shared.DTOs.Transaction;
 using Project.Shared.Types;
-using System.Net;
 using System.Security.Claims;
 namespace AssetTracker.Controllers
 {

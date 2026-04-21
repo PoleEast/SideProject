@@ -1,15 +1,12 @@
 ﻿using AssetTracker.ApiClients;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using Project.Data;
-using Project.Data.Model;
 using Project.Shared.DTOs;
 using Project.Shared.DTOs.ExchangeRate;
 using Project.Shared.Types;
 
 namespace AssetTracker.Services
 {
-    public class ExchangeRateService(IExchangeRateApiClient exchangeRateApiClient,IMemoryCache cache)
+    public class ExchangeRateService(IExchangeRateApiClient exchangeRateApiClient, IMemoryCache cache)
     {
         public async Task<Result<ExchangeRateResponse>> GetExchangeRateAsync(CurrencyType currencyType)
         {

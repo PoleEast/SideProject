@@ -1,6 +1,5 @@
 ﻿using Project.Shared.Types;
 using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
 
 namespace Project.Shared.DTOs.Position
 {

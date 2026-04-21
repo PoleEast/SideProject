@@ -1,5 +1,3 @@
-using System;
-
 namespace Project.Shared.DTOs.FinMind.StockPrice
 {
     /// <summary>

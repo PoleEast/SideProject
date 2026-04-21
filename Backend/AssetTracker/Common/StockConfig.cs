@@ -1,5 +1,4 @@
 ﻿using Project.Shared.Types;
-using System.ComponentModel;
 
 namespace AssetTracker.Common
 {

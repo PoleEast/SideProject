@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Project.Shared.DTOs.Stock
+﻿namespace Project.Shared.DTOs.Stock
 {
     /// <summary>
     /// 統一的股票價格資訊DTO(從各市場API回傳轉換而來)

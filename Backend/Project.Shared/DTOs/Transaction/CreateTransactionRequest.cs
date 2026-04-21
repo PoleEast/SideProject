@@ -1,9 +1,6 @@
 ﻿using Project.Shared.Types;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.Text;
 
 namespace Project.Shared.DTOs.Transaction
 {

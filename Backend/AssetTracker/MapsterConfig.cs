@@ -28,8 +28,8 @@ namespace AssetTracker
                 .Ignore(d => d.CreatedAt)
                 .Ignore(d => d.UpdatedAt!)
                 .Ignore(d => d.DeletedAt!)
-                .Ignore(d=>d.Transactions)
-                .Ignore(d=>d.Avatars);
+                .Ignore(d => d.Transactions)
+                .Ignore(d => d.Avatars);
 
             TypeAdapterConfig<StockPrice, StockPriceHistory>.NewConfig()
                 .Map(d => d.OpeningPrice, s => s.Open)
@@ -122,6 +122,14 @@ namespace AssetTracker
             #endregion
 
             #region To Response
+
+            TypeAdapterConfig<StockPriceHistory, StockPriceResponse>.NewConfig()
+                .Map(d => d.StockMarket, s => s.StockMarket)
+                .Map(d => d.Code, s => s.Code)
+                .Map(d => d.Name, s => s.Name)
+                .Map(d => d.ClosingPrice, s => s.ClosingPrice)
+                .Map(d => d.Currency, s => s.Currency)
+                .Map(d => d.Date, s => s.Date);
 
             TypeAdapterConfig<Transaction, TransactionResponse>.NewConfig()
                 .Map(d => d.Id, s => s.Id)

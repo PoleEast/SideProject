@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import {
@@ -29,12 +29,15 @@ import { CanvasRenderer } from 'echarts/renderers'
 
 import { currencies, marketCurrencyMap } from '@/constants/common'
 import type { CurrencyType } from '@/types/common'
-import type { EnrichedPosition, PositionResponse } from '@/types/Position'
+import type { DisplayedPosition, EnrichedPosition, PositionResponse } from '@/types/Position'
 import { getPosition } from '@/api/Position'
 import { getExchangeRate } from '@/api/exchangeRate'
 import { useMarketChart } from './useMarketChart'
 import { usePositionColumns } from './usePositionColumns'
 import { useStockChart } from './useStockChart'
+import { getLatestStockPrices } from '@/api/stock'
+import type { stockPriceResponse } from '@/types/stock'
+import type { ExchangeRateResponse } from '@/types/exchangeRate'
 
 use([
   CanvasRenderer,
@@ -52,7 +55,9 @@ const router = useRouter()
 
 const errorMessage = ref('')
 const isLoading = ref(false)
-const positions = ref<EnrichedPosition[]>([])
+const positions = ref<PositionResponse[]>([])
+const conversionRates = ref<ExchangeRateResponse[]>([])
+const stockPrices = ref<stockPriceResponse[]>([])
 
 // 使用者選擇的顯示幣別
 const displayCurrency = ref<CurrencyType>(currencies[0])
@@ -67,6 +72,23 @@ const {
   handleChartClick,
   handleMarketLegendChange,
 } = useMarketChart(positions, stockChartRef)
+
+const enrichedPosition = computed<EnrichedPosition[]>(()=>
+   positions.value.map<EnrichedPosition>(p => {
+    const stockPrice = stockPrices.value.find(s=> s.stockMarket === p.stockMarket && s.code === p.stockCode)
+
+    return{
+    ...p,
+    stockName: stockPrice?.name ?? '',
+    totalCost: p.averagePrice * p.quantity,
+    currentPrice: stockPrice?.closingPrice,
+   unrealizedPnl: stockPrice ? (stockPrice.closingPrice - p.averagePrice) * p.quantity : undefined,
+    unrealizedPnlRate: stockPrice?.closingPrice ? (stockPrice.closingPrice / p.averagePrice) - 1: undefined
+  }}))
+
+const displayedPositions = computed<DisplayedPosition[]>(()=>{
+
+})
 
 // ---- Helper ----
 const calcConvertedTotalCost = (
@@ -126,8 +148,32 @@ onMounted(async () => {
       ...p,
       convertedTotalCost: calcConvertedTotalCost(p, exchangeRateResult.data.conversionRates),
     }))
-
     recalcMarketTotal()
+
+    const LatestStockPricesResult = await getLatestStockPrices(
+      positions.value.map((p) => ({
+        stockMarket: p.stockMarket,
+        code: p.stockCode,
+      })),
+      new Date(),
+    )
+
+    if (!LatestStockPricesResult.ok) {
+      errorMessage.value = LatestStockPricesResult.message
+      return
+    }
+
+    const stockPrices = LatestStockPricesResult.data.succeeded
+
+    positions.value.forEach((p) => {
+      const stockPrice = stockPrices.find(
+        (s) => s.code === p.stockCode && s.stockMarket === p.stockMarket,
+      )
+
+      p.stockName = stockPrice?.name
+      p.currentPrice = stockPrice?.closingPrice
+      p.unrealizedPnl =
+    })
   } catch {
     errorMessage.value = '網路連線發生問題，請稍後再試'
   } finally {

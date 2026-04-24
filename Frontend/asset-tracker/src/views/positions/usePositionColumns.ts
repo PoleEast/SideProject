@@ -27,6 +27,7 @@ export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: R
       },
     },
     { title: '股票代碼', key: 'stockCode', sorter: 'default' },
+    { title: '公司名稱', key: 'stockName' },
     {
       title: '持倉數量',
       key: 'quantity',
@@ -38,6 +39,10 @@ export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: R
       key: 'averagePrice',
       sorter: 'default',
       render: (row) => row.averagePrice.toLocaleString(),
+    },
+    {
+      title: '現價',
+      key: 'currentPrice',
     },
     {
       title: () => renderCurrencyHintTitle('總成本(原)'),
@@ -52,6 +57,14 @@ export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: R
       sorter: (a, b) => a.convertedTotalCost - b.convertedTotalCost,
       render: (row) =>
         row.convertedTotalCost.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+    },
+    {
+      title: '未實現損益',
+      key: 'unrealizedPnl',
+    },
+    {
+      title: '未實現損益(%)',
+      key: 'unrealizedPnlRate',
     },
   ])
 

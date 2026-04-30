@@ -5,13 +5,9 @@ import { type DataTableColumns } from 'naive-ui'
 
 import type { CurrencyType } from '@/types/common'
 import type { DisplayedPosition } from '@/types/Position'
-import { getPnlRowColor } from '@/utils/colors'
-import {
-  renderCurrencyHintTitle,
-  renderMarketTag,
-  renderPnlRate,
-  renderPnlValue,
-} from '@/utils/tableHelpers'
+import { getPnlRowColor, getPnlTextColor } from '@/utils/colors'
+import { renderCurrencyHintTitle, renderMarketTag, renderTwoLine } from '@/utils/tableHelpers'
+import { marketCurrencyMap } from '@/constants/common'
 
 export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: Router) => {
   const columns = computed<DataTableColumns<DisplayedPosition>>(() => [
@@ -20,8 +16,12 @@ export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: R
       key: 'stockMarket',
       render: (row) => renderMarketTag(row.stockMarket),
     },
-    { title: '股票代碼', key: 'stockCode', sorter: 'default' },
-    { title: '公司名稱', key: 'stockName' },
+    {
+      title: '股票',
+      key: 'stockCode',
+      sorter: 'default',
+      render: (row) => renderTwoLine(row.stockCode, row.stockName),
+    },
     {
       title: '持倉數量',
       key: 'quantity',
@@ -29,41 +29,48 @@ export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: R
       render: (row) => row.quantity.toLocaleString(),
     },
     {
-      title: '平均成本',
-      key: 'averagePrice',
-      sorter: 'default',
-      render: (row) => row.averagePrice.toLocaleString(undefined, { maximumFractionDigits: 2 }),
-    },
-    {
-      title: '現價',
+      title: '現價/成本',
       key: 'currentPrice',
-      render: (row) =>
-        row.currentPrice?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? '-',
-    },
-    {
-      title: () => renderCurrencyHintTitle('總成本'),
-      key: 'totalCost',
       sorter: 'default',
-      render: (row) => row.totalCost.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+      render: (row) =>
+        row.currentPrice !== undefined
+          ? renderTwoLine(
+              row.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+              row.averagePrice.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+            )
+          : row.averagePrice.toLocaleString(undefined, { maximumFractionDigits: 2 }),
     },
     {
-      title: `總成本(${displayCurrency.value})`,
+      title: () => renderCurrencyHintTitle(`總成本 (${displayCurrency.value})`),
       key: 'convertedTotalCost',
       sorter: 'default',
       render: (row) =>
-        row.convertedTotalCost?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? '-',
+        row.convertedTotalCost !== undefined
+          ? renderTwoLine(
+              row.convertedTotalCost?.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+              marketCurrencyMap[row.stockMarket] +
+                ' ' +
+                row.totalCost.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+            )
+          : row.totalCost.toLocaleString(undefined, { maximumFractionDigits: 2 }),
     },
     {
       title: '未實現損益',
       key: 'unrealizedPnl',
       sorter: 'default',
-      render: (row) => renderPnlValue(row.unrealizedPnl),
-    },
-    {
-      title: '未實現損益(%)',
-      key: 'unrealizedPnlRate',
-      sorter: 'default',
-      render: (row) => renderPnlRate(row.unrealizedPnlRate),
+      render: (row) => {
+        const color = getPnlTextColor(row.unrealizedPnl)
+        return renderTwoLine(
+          row.unrealizedPnl?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? '-',
+          row.unrealizedPnlRate !== undefined
+            ? row.unrealizedPnlRate.toLocaleString(undefined, {
+                style: 'percent',
+                maximumFractionDigits: 2,
+              })
+            : undefined,
+          { primaryColor: color, secondaryColor: color },
+        )
+      },
     },
   ])
 

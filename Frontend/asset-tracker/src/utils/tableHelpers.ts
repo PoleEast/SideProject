@@ -59,6 +59,39 @@ export const renderPnlRate = (rate?: number) => {
   return h(NText, { strong: true, style: { color } }, { default: () => text })
 }
 
+export const renderTwoLine = (
+  primary: string,
+  secondary?: string,
+  option?: { primaryColor?: string; secondaryColor?: string },
+) =>
+  h(
+    'div',
+    {
+      class: 'flex flex-col leading-tight',
+    },
+    [
+      h(
+        NText,
+        {
+          class: 'font-semibold',
+          style: { color: option?.primaryColor },
+        },
+        { default: () => primary },
+      ),
+      secondary
+        ? h(
+            NText,
+            {
+              depth: 3,
+              class: 'text-xs',
+              style: { color: option?.secondaryColor },
+            },
+            { default: () => secondary },
+          )
+        : null,
+    ],
+  )
+
 export const getPnlRowClassName = (pnl?: number) => {
   if (pnl === undefined) return ''
 

@@ -226,7 +226,7 @@ onMounted(async () => {
           :row-props="rowProps"
           :row-class-name="rowClassName"
           :bordered="false"
-          :scroll-x="1400"
+          :scroll-x="700"
           striped
         />
       </n-card>

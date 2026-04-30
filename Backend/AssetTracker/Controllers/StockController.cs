@@ -35,12 +35,29 @@ namespace AssetTracker.Controllers
         }
 
         /// <summary>
+        /// 批次查詢多檔股票的基本資訊，回傳成功與失敗清單
+        /// </summary>
+        /// <param name="requests">股票清單（市場 + 代碼）</param>
+        [HttpPost("infos")]
+        public async Task<ActionResult<BatchStockInfoResponse>> GetStockInfos([FromBody, Length(1, 50)] List<StockIdentifier> requests)
+        {
+            var result = await stockService.GetStockInfosAsync(requests);
+
+            return result.Code switch
+            {
+                ResultCode.Success => Ok(result.Value),
+                ResultCode.BusinessRuleViolation => BadRequest(result.Message),
+                _ => StatusCode((int)result.Code)
+            };
+        }
+
+        /// <summary>
         /// 批次查詢多檔股票截至指定日期為止最新的股價，回傳成功與失敗清單
         /// </summary>
         /// <param name="requests">股票清單（市場 + 代碼）</param>
         /// <param name="asOf">截至日期（不可大於今天）</param>
         [HttpPost("latest-prices")]
-        public async Task<ActionResult<BatchStockPriceResponse>> GetLatestStockPrices([FromBody, Length(1, 50)] List<BatchStockPriceRequest> requests, [FromQuery][BindRequired, NotFutureDate] DateTime asOf)
+        public async Task<ActionResult<BatchStockPriceResponse>> GetLatestStockPrices([FromBody, Length(1, 50)] List<StockIdentifier> requests, [FromQuery][BindRequired, NotFutureDate] DateTime asOf)
         {
             var result = await stockService.GetLatestStockPricesAsync(requests, asOf);
 

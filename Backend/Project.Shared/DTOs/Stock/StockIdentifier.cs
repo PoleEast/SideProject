@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Project.Shared.DTOs.Stock
 {
-    public class BatchStockPriceRequest
+    public class StockIdentifier
     {
         [Description("市場")]
         [Required(ErrorMessage = "請傳入所屬市場")]

@@ -38,7 +38,39 @@ namespace AssetTracker.Services
             return Result<StockPriceResponse>.Success(batchResult.Value.Succeeded[0]);
         }
 
-        public async Task<Result<BatchStockPriceResponse>> GetLatestStockPricesAsync(List<BatchStockPriceRequest> requests, DateTime asOf)
+        public async Task<Result<BatchStockInfoResponse>> GetStockInfosAsync(List<StockIdentifier> requests)
+        {
+            var response = new BatchStockInfoResponse();
+
+            var distinctRequests = requests
+                .GroupBy(r => (r.StockMarket, Code: r.Code.Trim().ToUpperInvariant()))
+                .Select(g => new StockIdentifier { StockMarket = g.Key.StockMarket, Code = g.Key.Code })
+                .ToList();
+
+            foreach (var request in distinctRequests)
+            {
+                var infoResult = await stockApiClients.GetStockInfoAsync(request.StockMarket, request.Code);
+
+                if (!infoResult.IsSuccess || infoResult.Value == null)
+                {
+                    response.Failed.Add(new BatchStockInfoFailure
+                    {
+                        StockMarket = request.StockMarket,
+                        Code = request.Code,
+                        Message = "不支援此檔股票"
+                    });
+                    continue;
+                }
+
+                var info = infoResult.Value.Adapt<StockInfoResponse>();
+                info.StockMarket = request.StockMarket;
+                response.Succeeded.Add(info);
+            }
+
+            return Result<BatchStockInfoResponse>.Success(response);
+        }
+
+        public async Task<Result<BatchStockPriceResponse>> GetLatestStockPricesAsync(List<StockIdentifier> requests, DateTime asOf)
         {
             if (asOf.Date > DateTime.Today)
             {
@@ -49,7 +81,7 @@ namespace AssetTracker.Services
 
             var distinctRequests = requests
                 .GroupBy(r => (r.StockMarket, Code: r.Code.Trim().ToUpperInvariant()))
-                .Select(g => new BatchStockPriceRequest { StockMarket = g.Key.StockMarket, Code = g.Key.Code })
+                .Select(g => new StockIdentifier { StockMarket = g.Key.StockMarket, Code = g.Key.Code })
                 .ToList();
 
             // 先查 DB 快取，命中直接用，沒命中的進後續流程
@@ -83,8 +115,8 @@ namespace AssetTracker.Services
             return Result<BatchStockPriceResponse>.Success(batchResult);
         }
 
-        private async Task<(List<StockPriceResponse> Cached, List<BatchStockPriceRequest> NotCached)> TryGetFromCacheAsync(
-            List<BatchStockPriceRequest> distinctRequests, DateTime asOf)
+        private async Task<(List<StockPriceResponse> Cached, List<StockIdentifier> NotCached)> TryGetFromCacheAsync(
+            List<StockIdentifier> distinctRequests, DateTime asOf)
         {
             var targetDate = asOf.Date;
             var markets = distinctRequests.Select(r => r.StockMarket).Distinct().ToList();
@@ -110,10 +142,10 @@ namespace AssetTracker.Services
             return (cached, notCached);
         }
 
-        private async Task<(List<BatchStockPriceRequest> Valid, List<BatchStockPriceFailure> Failures)> ValidateStockInfosAsync(
-            List<BatchStockPriceRequest> requests)
+        private async Task<(List<StockIdentifier> Valid, List<BatchStockPriceFailure> Failures)> ValidateStockInfosAsync(
+            List<StockIdentifier> requests)
         {
-            var valid = new List<BatchStockPriceRequest>();
+            var valid = new List<StockIdentifier>();
             var failures = new List<BatchStockPriceFailure>();
 
             foreach (var request in requests)
@@ -137,7 +169,7 @@ namespace AssetTracker.Services
         }
 
         private async Task<(List<StockPriceHistory> AllPrices, List<BatchStockPriceFailure> Failures)> FetchFromApiAsync(
-            List<BatchStockPriceRequest> requests, DateTime asOf)
+            List<StockIdentifier> requests, DateTime asOf)
         {
             var allPrices = new List<StockPriceHistory>();
             var failures = new List<BatchStockPriceFailure>();

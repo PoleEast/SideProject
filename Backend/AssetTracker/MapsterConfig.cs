@@ -131,6 +131,13 @@ namespace AssetTracker
                 .Map(d => d.Currency, s => s.Currency)
                 .Map(d => d.Date, s => s.Date);
 
+            TypeAdapterConfig<StockInfo, StockInfoResponse>.NewConfig()
+                .Map(d => d.Code, s => s.Code)
+                .Map(d => d.Name, s => s.Name)
+                .Map(d => d.IndustryCategory, s => s.IndustryCategory)
+                .Map(d => d.Exchange, s => s.Exchange)
+                .Ignore(d => d.StockMarket);
+
             TypeAdapterConfig<Transaction, TransactionResponse>.NewConfig()
                 .Map(d => d.Id, s => s.Id)
                 .Map(d => d.StockCode, s => s.StockCode)

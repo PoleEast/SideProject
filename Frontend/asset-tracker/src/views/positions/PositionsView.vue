@@ -56,14 +56,48 @@ const router = useRouter()
 const errorMessage = ref('')
 const isLoading = ref(false)
 const positions = ref<PositionResponse[]>([])
-const conversionRates = ref<ExchangeRateResponse[]>([])
+const conversionRates = ref<ExchangeRateResponse>()
 const stockPrices = ref<stockPriceResponse[]>([])
 
 // 使用者選擇的顯示幣別
 const displayCurrency = ref<CurrencyType>(currencies[0])
 
-const { columns, rowProps } = usePositionColumns(displayCurrency, router)
-const { stockChartRef, stockChartOption } = useStockChart(positions)
+const enrichedPositions = computed<EnrichedPosition[]>(() =>
+  positions.value.map<EnrichedPosition>((p) => {
+    const stockPrice = stockPrices.value.find(
+      (s) => s.stockMarket === p.stockMarket && s.code === p.stockCode,
+    )
+
+    return {
+      ...p,
+      stockName: stockPrice?.name,
+      totalCost: p.averagePrice * p.quantity,
+      currentPrice: stockPrice?.closingPrice,
+      unrealizedPnl: stockPrice
+        ? (stockPrice.closingPrice - p.averagePrice) * p.quantity
+        : undefined,
+      unrealizedPnlRate: stockPrice ? stockPrice.closingPrice / p.averagePrice - 1 : undefined,
+    }
+  }),
+)
+
+const displayedPositions = computed<DisplayedPosition[]>(() =>
+  enrichedPositions.value.map<DisplayedPosition>((p) => {
+    const conversionRate = conversionRates.value?.conversionRates[marketCurrencyMap[p.stockMarket]]
+
+    return {
+      ...p,
+      convertedTotalCost: conversionRate ? p.totalCost / conversionRate : undefined,
+      convertedUnrealizedPnl:
+        p.unrealizedPnl !== undefined && conversionRate !== undefined
+          ? p.unrealizedPnl / conversionRate
+          : undefined,
+    }
+  }),
+)
+
+const { columns, rowProps, rowClassName } = usePositionColumns(displayCurrency, router)
+const { stockChartRef, stockChartOption } = useStockChart(displayedPositions)
 const {
   marketChartRef,
   marketChartOption,
@@ -71,33 +105,7 @@ const {
   handleChartHover,
   handleChartClick,
   handleMarketLegendChange,
-} = useMarketChart(positions, stockChartRef)
-
-const enrichedPosition = computed<EnrichedPosition[]>(()=>
-   positions.value.map<EnrichedPosition>(p => {
-    const stockPrice = stockPrices.value.find(s=> s.stockMarket === p.stockMarket && s.code === p.stockCode)
-
-    return{
-    ...p,
-    stockName: stockPrice?.name ?? '',
-    totalCost: p.averagePrice * p.quantity,
-    currentPrice: stockPrice?.closingPrice,
-   unrealizedPnl: stockPrice ? (stockPrice.closingPrice - p.averagePrice) * p.quantity : undefined,
-    unrealizedPnlRate: stockPrice?.closingPrice ? (stockPrice.closingPrice / p.averagePrice) - 1: undefined
-  }}))
-
-const displayedPositions = computed<DisplayedPosition[]>(()=>{
-
-})
-
-// ---- Helper ----
-const calcConvertedTotalCost = (
-  position: PositionResponse,
-  conversionRates: Record<CurrencyType, number>,
-) => {
-  const currency = marketCurrencyMap[position.stockMarket]
-  return (position.averagePrice * position.quantity) / conversionRates[currency]
-}
+} = useMarketChart(displayedPositions, stockChartRef)
 
 // ---- Event Handlers ----
 
@@ -111,11 +119,7 @@ const handleCurrencyChange = async () => {
       return
     }
 
-    positions.value.forEach(
-      (p) =>
-        (p.convertedTotalCost = calcConvertedTotalCost(p, exchangeRateResult.data.conversionRates)),
-    )
-
+    conversionRates.value = exchangeRateResult.data
     recalcMarketTotal()
   } catch {
     errorMessage.value = '網路連線發生問題，請稍後再試'
@@ -144,11 +148,8 @@ onMounted(async () => {
       return
     }
 
-    positions.value = positionResult.data.map((p) => ({
-      ...p,
-      convertedTotalCost: calcConvertedTotalCost(p, exchangeRateResult.data.conversionRates),
-    }))
-    recalcMarketTotal()
+    positions.value = positionResult.data
+    conversionRates.value = exchangeRateResult.data
 
     const LatestStockPricesResult = await getLatestStockPrices(
       positions.value.map((p) => ({
@@ -163,20 +164,11 @@ onMounted(async () => {
       return
     }
 
-    const stockPrices = LatestStockPricesResult.data.succeeded
-
-    positions.value.forEach((p) => {
-      const stockPrice = stockPrices.find(
-        (s) => s.code === p.stockCode && s.stockMarket === p.stockMarket,
-      )
-
-      p.stockName = stockPrice?.name
-      p.currentPrice = stockPrice?.closingPrice
-      p.unrealizedPnl =
-    })
+    stockPrices.value = LatestStockPricesResult.data.succeeded
   } catch {
     errorMessage.value = '網路連線發生問題，請稍後再試'
   } finally {
+    recalcMarketTotal()
     isLoading.value = false
   }
 })
@@ -230,9 +222,11 @@ onMounted(async () => {
       <n-card title="持倉明細" size="small" bordered>
         <n-data-table
           :columns="columns"
-          :data="positions"
+          :data="displayedPositions"
           :row-props="rowProps"
+          :row-class-name="rowClassName"
           :bordered="false"
+          :scroll-x="1400"
           striped
         />
       </n-card>

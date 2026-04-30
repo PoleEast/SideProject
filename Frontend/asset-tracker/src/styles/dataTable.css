@@ -1,0 +1,10 @@
+.row-profit .n-data-table-td,
+.row-loss .n-data-table-td {
+  background-color: rgba(var(--row-rgb), 0.08) !important;
+  transition: background-color 0.2s ease;
+}
+
+.row-profit:hover .n-data-table-td,
+.row-loss:hover .n-data-table-td {
+  background-color: rgba(var(--row-rgb), 0.13) !important;
+}

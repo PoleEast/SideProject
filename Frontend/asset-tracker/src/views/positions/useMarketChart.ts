@@ -3,11 +3,11 @@ import { computed, readonly, ref, type Ref } from 'vue'
 import type { EChartsOption } from 'echarts'
 import type VChart from 'vue-echarts'
 
-import type { EnrichedPosition } from '@/types/Position'
+import type { DisplayedPosition } from '@/types/Position'
 import type { MarketType } from '@/types/common'
 
 export const useMarketChart = (
-  positions: Ref<EnrichedPosition[]>,
+  positions: Ref<DisplayedPosition[]>,
   stockChartRef: Ref<InstanceType<typeof VChart> | undefined>,
 ) => {
   const marketChartRef = ref<InstanceType<typeof VChart>>()
@@ -20,7 +20,7 @@ export const useMarketChart = (
     const map = new Map<MarketType, number>()
 
     positions.value.forEach((pos) => {
-      map.set(pos.stockMarket, (map.get(pos.stockMarket) ?? 0) + pos.convertedTotalCost)
+      map.set(pos.stockMarket, (map.get(pos.stockMarket) ?? 0) + (pos.convertedTotalCost ?? 0))
     })
 
     return [['市場', '總額'], ...map.entries()]
@@ -138,7 +138,10 @@ export const useMarketChart = (
 
     if (selectedMarket.value === params.name) {
       selectedMarket.value = null
-      marketTotal.value = positions.value.reduce((sum, pos) => sum + pos.convertedTotalCost, 0)
+      marketTotal.value = positions.value.reduce(
+        (sum, pos) => sum + (pos.convertedTotalCost ?? 0),
+        0,
+      )
       stockChartRef.value?.dispatchAction({ type: 'legendAllSelect' })
       return
     }
@@ -151,7 +154,7 @@ export const useMarketChart = (
 
     marketTotal.value = positions.value
       .filter((p) => p.stockMarket === params.name)
-      .reduce((sum, pos) => sum + pos.convertedTotalCost, 0)
+      .reduce((sum, pos) => sum + (pos.convertedTotalCost ?? 0), 0)
 
     stockChartRef.value?.dispatchAction({
       type: 'legendAllSelect',
@@ -178,7 +181,7 @@ export const useMarketChart = (
 
     marketTotal.value = positions.value
       .filter((p) => params.selected[p.stockMarket])
-      .reduce((sum, pos) => sum + pos.convertedTotalCost, 0)
+      .reduce((sum, pos) => sum + (pos.convertedTotalCost ?? 0), 0)
 
     marketChartRef.value?.dispatchAction({
       type: 'unselect',
@@ -203,7 +206,7 @@ export const useMarketChart = (
     })
   }
   const recalcMarketTotal = () => {
-    marketTotal.value = positions.value.reduce((sum, pos) => sum + pos.convertedTotalCost, 0)
+    marketTotal.value = positions.value.reduce((sum, pos) => sum + (pos.convertedTotalCost ?? 0), 0)
   }
 
   return {

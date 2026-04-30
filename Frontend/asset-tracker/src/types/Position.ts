@@ -7,16 +7,6 @@ export interface PositionResponse {
   averagePrice: number
 }
 
-export interface RealizedPnlResponse {
-  id: number
-  stockMarket: MarketType
-  stockCode: string
-  date: string
-  sellQuantity: number
-  sellPrice: number
-  buyPrice: number
-}
-
 export interface EnrichedPosition extends PositionResponse {
   stockName?: string
   totalCost: number
@@ -26,8 +16,18 @@ export interface EnrichedPosition extends PositionResponse {
 }
 
 export interface DisplayedPosition extends EnrichedPosition {
-  convertedTotalCost: number
+  convertedTotalCost?: number
   convertedUnrealizedPnl?: number
+}
+
+export interface RealizedPnlResponse {
+  id: number
+  stockMarket: MarketType
+  stockCode: string
+  date: string
+  sellQuantity: number
+  sellPrice: number
+  buyPrice: number
 }
 
 export interface EnrichedRealizedPnl extends RealizedPnlResponse {

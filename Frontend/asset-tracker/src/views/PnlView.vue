@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import {
@@ -16,7 +16,6 @@ import {
   NSelect,
   NSpin,
   NStatistic,
-  NTag,
   NText,
   NRadioGroup,
   NRadioButton,
@@ -28,8 +27,14 @@ import { SearchRound } from '@vicons/material'
 import { getRealizedPnl } from '@/api/Position'
 import type { CurrencyType, MarketType } from '@/types/common'
 import type { EnrichedRealizedPnl, RealizedPnlResponse } from '@/types/Position'
-import { getPnlColor, marketColors, pnlColors } from '@/utils/colors'
-import { renderCurrencyHintTitle } from '@/utils/tableHelpers'
+import { getPnlRowColor, getPnlTextColor, pnlColors } from '@/utils/colors'
+import {
+  getPnlRowClassName,
+  renderCurrencyHintTitle,
+  renderMarketTag,
+  renderPnlRate,
+  renderPnlValue,
+} from '@/utils/tableHelpers'
 import { getExchangeRate } from '@/api/exchangeRate'
 import { currencies, marketCurrencyMap } from '@/constants/common'
 
@@ -112,80 +117,41 @@ const lossCount = computed(
 // ---- Table ----
 
 const columns: DataTableColumns<EnrichedRealizedPnl> = [
-  { title: '日期', key: 'date', width: 110, render: (row) => row.date.slice(0, 10) },
+  { title: '日期', key: 'date', render: (row) => row.date.slice(0, 10) },
   {
     title: '市場',
     key: 'stockMarket',
-    width: 80,
-    render: (row) => {
-      const color = marketColors[row.stockMarket]
-      const style = color
-        ? `color: ${color.secondary}; background: ${color.primary}; font-weight: 600`
-        : 'font-weight: 600'
-      return h(
-        NTag,
-        { size: 'small', bordered: false, style: style },
-        { default: () => row.stockMarket },
-      )
-    },
+    render: (row) => renderMarketTag(row.stockMarket),
   },
-  { title: '股票代碼', key: 'stockCode', width: 110 },
+  { title: '股票代碼', key: 'stockCode' },
   {
     title: () => renderCurrencyHintTitle('買入價格'),
     key: 'buyPrice',
-    width: 120,
   },
   {
     title: () => renderCurrencyHintTitle('賣出價格'),
     key: 'sellPrice',
-    width: 120,
   },
-  { title: '數量', key: 'sellQuantity', width: 80 },
+  { title: '數量', key: 'sellQuantity' },
   {
     title: () => renderCurrencyHintTitle('已實現損益(原)'),
     key: 'pnl',
-    width: 140,
-    render: (row) => {
-      const color = getPnlColor(row.pnl)
-      return h(NText, { strong: true, style: { color } }, { default: () => formatPnl(row.pnl) })
-    },
+    render: (row) => renderPnlValue(row.pnl),
   },
   {
     title: () => renderCurrencyHintTitle('已實現損益'),
     key: 'convertedPnl',
-    width: 140,
-    render: (row) => {
-      if (row.convertedPnl === undefined)
-        return h(NText, { strong: true }, { default: () => '無法計算' })
-
-      const color = getPnlColor(row.pnl)
-
-      return h(
-        NText,
-        { strong: true, style: { color } },
-        { default: () => formatPnl(row.convertedPnl!) },
-      )
-    },
+    render: (row) => renderPnlValue(row.convertedPnl),
   },
   {
     title: '已實現損益(%)',
     key: 'pnlRate',
-    width: 120,
-    render: (row) => {
-      const rate = row.pnlRate * 100
-      const color = getPnlColor(row.pnl)
-      const text = `${rate > 0 ? '+' : ''}${rate.toFixed(2)} %`
-      return h(NText, { strong: true, style: { color } }, { default: () => text })
-    },
+    render: (row) => renderPnlRate(row.pnlRate),
   },
 ]
 
-const rowClassName = (row: EnrichedRealizedPnl) => {
-  return row.pnl > 0 ? 'row-profit' : row.pnl < 0 ? 'row-loss' : ''
-}
-
 const rowProps = (row: EnrichedRealizedPnl) => {
-  const rowRgb = row.pnl > 0 ? pnlColors.profit.rgb : row.pnl < 0 ? pnlColors.loss.rgb : ''
+  const rowRgb = getPnlRowColor(row.pnl) ?? ''
   return {
     style: {
       cursor: 'pointer',
@@ -289,7 +255,7 @@ onMounted(async () => {
         <n-statistic label="已實現損益總計">
           <n-text
             :style="{
-              color: getPnlColor(totalPnl),
+              color: getPnlTextColor(totalPnl),
             }"
             class="text-4xl font-bold"
           >
@@ -333,8 +299,9 @@ onMounted(async () => {
       <n-data-table
         :columns="columns"
         :data="filteredRecords"
-        :row-class-name="rowClassName"
+        :row-class-name="(row) => getPnlRowClassName(row.pnl)"
         :row-props="rowProps"
+        :scroll-x="1400"
         :bordered="false"
       />
     </n-card>
@@ -350,15 +317,3 @@ onMounted(async () => {
     </div>
   </template>
 </template>
-
-<style scoped>
-:deep(.row-profit .n-data-table-td),
-:deep(.row-loss .n-data-table-td) {
-  background-color: rgba(var(--row-rgb), 0.08) !important;
-  transition: background-color 0.2s ease;
-}
-:deep(.row-profit:hover .n-data-table-td),
-:deep(.row-loss:hover .n-data-table-td) {
-  background-color: rgba(var(--row-rgb), 0.13) !important;
-}
-</style>

@@ -16,9 +16,16 @@ export const pnlColors = {
   loss: transactionTypeColors.Sell,
 }
 
-export const getPnlColor = (value: number | undefined): string | undefined => {
+export const getPnlTextColor = (value: number | undefined): string | undefined => {
   if (value === undefined) return undefined
   if (value > 0) return pnlColors.profit.primary
   if (value < 0) return pnlColors.loss.primary
+  return undefined
+}
+
+export const getPnlRowColor = (value: number | undefined): string | undefined => {
+  if (value === undefined) return undefined
+  if (value > 0) return pnlColors.profit.rgb
+  if (value < 0) return pnlColors.loss.rgb
   return undefined
 }

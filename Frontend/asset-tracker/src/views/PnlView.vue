@@ -127,11 +127,13 @@ const columns: DataTableColumns<EnrichedRealizedPnl> = [
   {
     title: '市場',
     key: 'stockMarket',
+    fixed: 'left',
     render: (row) => renderMarketTag(row.stockMarket),
   },
   {
     title: '股票代碼',
     key: 'stockCode',
+    fixed: 'left',
     render: (row) => renderTwoLine(row.stockCode, row.stockName),
   },
   {
@@ -146,6 +148,7 @@ const columns: DataTableColumns<EnrichedRealizedPnl> = [
   {
     title: '已實現損益',
     key: 'convertedPnl',
+    fixed: 'right',
     render: (row) => {
       const color = getPnlTextColor(row.convertedPnl)
       return renderTwoLine(

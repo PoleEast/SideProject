@@ -14,12 +14,14 @@ export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: R
     {
       title: '市場',
       key: 'stockMarket',
+      fixed: 'left',
       render: (row) => renderMarketTag(row.stockMarket),
     },
     {
       title: '股票',
       key: 'stockCode',
       sorter: 'default',
+      fixed: 'left',
       render: (row) => renderTwoLine(row.stockCode, row.stockName),
     },
     {
@@ -57,6 +59,7 @@ export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: R
     {
       title: '未實現損益',
       key: 'unrealizedPnl',
+      fixed: 'right',
       sorter: 'default',
       render: (row) => {
         const color = getPnlTextColor(row.unrealizedPnl)

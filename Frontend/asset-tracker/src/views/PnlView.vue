@@ -32,11 +32,12 @@ import {
   getPnlRowClassName,
   renderCurrencyHintTitle,
   renderMarketTag,
-  renderPnlRate,
-  renderPnlValue,
+  renderTwoLine,
 } from '@/utils/tableHelpers'
 import { getExchangeRate } from '@/api/exchangeRate'
 import { currencies, marketCurrencyMap } from '@/constants/common'
+import { getLatestStockInfos } from '@/api/stock'
+import type { StockInfoResponse } from '@/types/stock'
 
 const router = useRouter()
 
@@ -44,6 +45,7 @@ const router = useRouter()
 
 const realizedPnl = ref<RealizedPnlResponse[]>([])
 const conversionRates = ref<Record<CurrencyType, number>>()
+const stockInfos = ref<StockInfoResponse[]>([])
 const isLoading = ref<boolean>(true)
 const errorMessage = ref('')
 const displayCurrency = ref<CurrencyType>('TWD')
@@ -52,8 +54,12 @@ const enrichedRealizedPnl = computed<EnrichedRealizedPnl[]>(() =>
   realizedPnl.value.map((r) => {
     const pnl = (r.sellPrice - r.buyPrice) * r.sellQuantity
     const rate = conversionRates.value?.[marketCurrencyMap[r.stockMarket]]
+    const infos = stockInfos.value?.find(
+      (s) => s.code === r.stockCode && s.stockMarket === r.stockMarket,
+    )
     return {
       ...r,
+      stockName: infos?.name,
       pnl,
       pnlRate: pnl / (r.buyPrice * r.sellQuantity),
       convertedPnl: rate ? pnl / rate : undefined,
@@ -123,7 +129,11 @@ const columns: DataTableColumns<EnrichedRealizedPnl> = [
     key: 'stockMarket',
     render: (row) => renderMarketTag(row.stockMarket),
   },
-  { title: '股票代碼', key: 'stockCode' },
+  {
+    title: '股票代碼',
+    key: 'stockCode',
+    render: (row) => renderTwoLine(row.stockCode, row.stockName),
+  },
   {
     title: () => renderCurrencyHintTitle('買入價格'),
     key: 'buyPrice',
@@ -134,19 +144,21 @@ const columns: DataTableColumns<EnrichedRealizedPnl> = [
   },
   { title: '數量', key: 'sellQuantity' },
   {
-    title: () => renderCurrencyHintTitle('已實現損益(原)'),
-    key: 'pnl',
-    render: (row) => renderPnlValue(row.pnl),
-  },
-  {
-    title: () => renderCurrencyHintTitle('已實現損益'),
+    title: '已實現損益',
     key: 'convertedPnl',
-    render: (row) => renderPnlValue(row.convertedPnl),
-  },
-  {
-    title: '已實現損益(%)',
-    key: 'pnlRate',
-    render: (row) => renderPnlRate(row.pnlRate),
+    render: (row) => {
+      const color = getPnlTextColor(row.convertedPnl)
+      return renderTwoLine(
+        row.convertedPnl?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? '-',
+        row.pnlRate !== undefined
+          ? row.pnlRate.toLocaleString(undefined, {
+              style: 'percent',
+              maximumFractionDigits: 2,
+            })
+          : undefined,
+        { primaryColor: color, secondaryColor: color },
+      )
+    },
   },
 ]
 
@@ -209,6 +221,20 @@ onMounted(async () => {
 
     realizedPnl.value = realizedPnlResult.data
     conversionRates.value = exchangeRateResult.data.conversionRates
+
+    const stockInfosResult = await getLatestStockInfos(
+      realizedPnlResult.data.map((r) => ({
+        stockMarket: r.stockMarket,
+        code: r.stockCode,
+      })),
+    )
+
+    if (!stockInfosResult.ok) {
+      errorMessage.value = stockInfosResult.message
+      return
+    }
+
+    stockInfos.value = stockInfosResult.data.succeeded
   } catch {
     errorMessage.value = '網路連線發生問題，請稍後再試'
   } finally {
@@ -301,7 +327,7 @@ onMounted(async () => {
         :data="filteredRecords"
         :row-class-name="(row) => getPnlRowClassName(row.pnl)"
         :row-props="rowProps"
-        :scroll-x="1400"
+        :scroll-x="700"
         :bordered="false"
       />
     </n-card>

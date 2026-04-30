@@ -31,6 +31,7 @@ export interface RealizedPnlResponse {
 }
 
 export interface EnrichedRealizedPnl extends RealizedPnlResponse {
+  stockName?: string
   pnl: number
   convertedPnl: number | undefined
   pnlRate: number

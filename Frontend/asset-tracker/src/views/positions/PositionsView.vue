@@ -36,7 +36,7 @@ import { useMarketChart } from './useMarketChart'
 import { usePositionColumns } from './usePositionColumns'
 import { useStockChart } from './useStockChart'
 import { getLatestStockPrices } from '@/api/stock'
-import type { stockPriceResponse } from '@/types/stock'
+import type { StockPriceResponse } from '@/types/stock'
 import type { ExchangeRateResponse } from '@/types/exchangeRate'
 
 use([
@@ -57,7 +57,7 @@ const errorMessage = ref('')
 const isLoading = ref(false)
 const positions = ref<PositionResponse[]>([])
 const conversionRates = ref<ExchangeRateResponse>()
-const stockPrices = ref<stockPriceResponse[]>([])
+const stockPrices = ref<StockPriceResponse[]>([])
 
 // 使用者選擇的顯示幣別
 const displayCurrency = ref<CurrencyType>(currencies[0])

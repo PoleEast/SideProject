@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
+    "@vueuse/core": "^14.3.0",
     "echarts": "^6.0.0",
     "naive-ui": "^2.43.2",
     "pinia": "^3.0.4",

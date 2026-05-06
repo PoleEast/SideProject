@@ -1,12 +1,13 @@
-import { computed, type Ref } from 'vue'
+import { computed, h, type Ref } from 'vue'
 import type { Router } from 'vue-router'
 
 import { type DataTableColumns } from 'naive-ui'
 
+import MarketTag from '@/components/MarketTag.vue'
 import type { CurrencyType } from '@/types/common'
 import type { DisplayedPosition } from '@/types/Position'
 import { getPnlRowColor, getPnlTextColor } from '@/utils/colors'
-import { renderCurrencyHintTitle, renderMarketTag, renderTwoLine } from '@/utils/tableHelpers'
+import { renderCurrencyHintTitle, renderTwoLine } from '@/utils/tableHelpers'
 import { marketCurrencyMap } from '@/constants/common'
 
 export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: Router) => {
@@ -15,7 +16,7 @@ export const usePositionColumns = (displayCurrency: Ref<CurrencyType>, router: R
       title: '市場',
       key: 'stockMarket',
       fixed: 'left',
-      render: (row) => renderMarketTag(row.stockMarket),
+      render: (row) => h(MarketTag, { market: row.stockMarket }),
     },
     {
       title: '股票',

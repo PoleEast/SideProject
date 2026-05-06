@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, h, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import {
@@ -28,10 +28,10 @@ import { getRealizedPnl } from '@/api/Position'
 import type { CurrencyType, MarketType } from '@/types/common'
 import type { EnrichedRealizedPnl, RealizedPnlResponse } from '@/types/Position'
 import { getPnlRowColor, getPnlTextColor, pnlColors } from '@/utils/colors'
+import MarketTag from '@/components/MarketTag.vue'
 import {
   getPnlRowClassName,
   renderCurrencyHintTitle,
-  renderMarketTag,
   renderTwoLine,
 } from '@/utils/tableHelpers'
 import { getExchangeRate } from '@/api/exchangeRate'
@@ -128,7 +128,7 @@ const columns: DataTableColumns<EnrichedRealizedPnl> = [
     title: '市場',
     key: 'stockMarket',
     fixed: 'left',
-    render: (row) => renderMarketTag(row.stockMarket),
+    render: (row) => h(MarketTag, { market: row.stockMarket }),
   },
   {
     title: '股票代碼',

@@ -1,29 +1,33 @@
 <script setup lang="ts">
+import { computed, reactive, ref, watch } from 'vue'
 import {
-  NModal,
+  NButton,
   NCard,
-  NH3,
-  NText,
+  NDatePicker,
   NForm,
   NFormItem,
-  NInput,
-  NDatePicker,
-  NInputNumber,
-  NButton,
-  NRadioGroup,
-  NRadioButton,
+  NH3,
   NIcon,
-  type FormRules,
-  type FormInst,
+  NInput,
+  NInputNumber,
+  NModal,
+  NRadioButton,
+  NRadioGroup,
+  NText,
   useMessage,
+  type FormInst,
+  type FormRules,
 } from 'naive-ui'
-import { computed, reactive, ref, watch } from 'vue'
-import { EditRound, AddOutlined } from '@vicons/material'
+import { useBreakpoints, breakpointsTailwind } from '@vueuse/core'
+import { AddOutlined, EditRound } from '@vicons/material'
+
+import type { MarketType, TransactionType } from '@/types/common'
 import type { TransactionRequest, TransactionResponse } from '@/types/transaction'
 import { create, updateTransaction } from '@/api/transaction'
 import { marketColors, transactionTypeColors } from '@/utils/colors'
 import { marketCurrencyMap } from '@/constants/common'
-import type { MarketType } from '@/types/common'
+
+// ---- Setup ----
 
 const props = defineProps<{
   transaction: TransactionResponse | null
@@ -32,9 +36,15 @@ const show = defineModel<boolean>('show')
 const emit = defineEmits<{ refresh: [] }>()
 
 const message = useMessage()
+const breakpoints = useBreakpoints(breakpointsTailwind)
+const isMobile = breakpoints.smaller('md')
+
+// ---- State ----
 
 const isEdit = computed(() => props.transaction !== null)
 const formRef = ref<FormInst | null>(null)
+const loading = ref(false)
+
 const formData = reactive({
   stockCode: '',
   market: 'TW' as MarketType,
@@ -44,6 +54,7 @@ const formData = reactive({
   quantity: null as number | null,
   remark: '',
 })
+
 const rules: FormRules = {
   stockCode: [{ required: true, message: '請輸入股票代碼', trigger: ['blur', 'input'] }],
   market: [{ required: true, message: '請選擇交易市場', trigger: ['blur', 'change'] }],
@@ -54,7 +65,8 @@ const rules: FormRules = {
   price: [{ required: true, type: 'number', message: '請輸入價格', trigger: ['blur', 'input'] }],
   quantity: [{ required: true, type: 'number', message: '請輸入數量', trigger: ['blur', 'input'] }],
 }
-const loading = ref(false)
+
+// ---- Radio button styles ----
 
 const markets = (['TW', 'US', 'JP'] as MarketType[]).map((value) => ({
   value,
@@ -66,7 +78,20 @@ const markets = (['TW', 'US', 'JP'] as MarketType[]).map((value) => ({
   },
 }))
 
+const transactionTypes = (['Buy', 'Sell'] as TransactionType[]).map((value) => ({
+  value,
+  label: value === 'Buy' ? '買入 Buy' : '賣出 Sell',
+  style: {
+    '--n-button-text-color-active': transactionTypeColors[value].primary,
+    '--n-button-border-color-active': transactionTypeColors[value].primary,
+    '--n-button-color-active': `${transactionTypeColors[value].primary}1a`,
+    '--n-button-box-shadow-focus': `inset 0 0 0 1px ${transactionTypeColors[value].primary}, 0 0 0 2px ${transactionTypeColors[value].primary}4d`,
+  },
+}))
+
 const currencyHint = computed(() => marketCurrencyMap[formData.market])
+
+// ---- Event Handlers ----
 
 const handleSubmit = async () => {
   try {
@@ -98,6 +123,8 @@ const handleSubmit = async () => {
   }
 }
 
+// ---- Watchers ----
+
 // modal 開啟時同步表單資料：編輯模式填入既有資料，新增模式重置表單
 watch(
   () => props.transaction,
@@ -124,16 +151,34 @@ watch(
 </script>
 
 <template>
-  <n-modal v-model:show="show" style="width: 520px" @mask-click="show = false">
-    <n-card class="overflow-hidden! rounded-2xl!" :content-style="'padding: 24px'">
+  <n-modal
+    v-model:show="show"
+    :style="isMobile ? 'width: 92vw' : 'width: 520px'"
+    @mask-click="show = false"
+  >
+    <n-card
+      :class="
+        isMobile
+          ? 'flex max-h-[90vh] flex-col overflow-hidden! rounded-2xl!'
+          : 'overflow-hidden! rounded-2xl!'
+      "
+      :content-style="
+        isMobile
+          ? 'padding: 0; display: flex; flex-direction: column; min-height: 0;'
+          : 'padding: 24px'
+      "
+    >
       <!-- Header -->
       <div
-        class="-mx-6 -mt-6 mb-6 px-6 py-5 transition-colors duration-300"
-        :class="{
-          'bg-red-50': formData.type === 'Buy',
-          'bg-green-50': formData.type === 'Sell',
-          'bg-gray-50': formData.type === null,
-        }"
+        class="transition-colors duration-300"
+        :class="[
+          isMobile ? 'shrink-0 px-6 py-5' : '-mx-6 -mt-6 mb-6 px-6 py-5',
+          {
+            'bg-red-50': formData.type === 'Buy',
+            'bg-green-50': formData.type === 'Sell',
+            'bg-gray-50': formData.type === null,
+          },
+        ]"
       >
         <div
           class="mb-1 text-xs font-semibold tracking-widest uppercase transition-colors duration-300"
@@ -162,8 +207,8 @@ watch(
             </n-text>
           </n-h3>
 
-          <!-- 市場選擇器（放 header 右側） -->
-          <div class="flex flex-col items-end gap-1">
+          <!-- 市場選擇器 -->
+          <div v-if="!isMobile" class="flex flex-col items-end gap-1">
             <n-radio-group v-model:value="formData.market">
               <n-radio-button
                 v-for="market in markets"
@@ -174,18 +219,39 @@ watch(
                 {{ market.value }}
               </n-radio-button>
             </n-radio-group>
-            <n-text depth="3" class="text-xs"> 交易幣別：{{ currencyHint }} </n-text>
+            <n-text depth="3" class="text-xs">交易幣別：{{ currencyHint }}</n-text>
           </div>
         </div>
       </div>
 
+      <!-- Form -->
       <n-form
         ref="formRef"
         :model="formData"
         :rules="rules"
-        label-placement="left"
-        label-width="90"
+        :label-placement="isMobile ? 'top' : 'left'"
+        :label-width="isMobile ? undefined : 90"
+        :class="isMobile ? 'min-h-0 flex-1 overflow-y-auto px-6 pt-6' : ''"
       >
+        <!-- 市場（手機版放 form 第一個） -->
+        <n-form-item v-if="isMobile" label="市場" path="market">
+          <div class="flex w-full flex-col gap-1">
+            <n-radio-group v-model:value="formData.market" class="w-full">
+              <n-radio-button
+                v-for="market in markets"
+                :key="market.value"
+                :value="market.value"
+                class="flex-1 text-center"
+                :style="market.style"
+              >
+                {{ market.value }}
+              </n-radio-button>
+            </n-radio-group>
+            <n-text depth="3" class="text-xs">交易幣別：{{ currencyHint }}</n-text>
+          </div>
+        </n-form-item>
+
+        <!-- 股票代碼 -->
         <n-form-item label="股票代碼" path="stockCode">
           <n-input
             v-model:value="formData.stockCode"
@@ -210,32 +276,19 @@ watch(
         <n-form-item label="交易類型" path="type">
           <n-radio-group v-model:value="formData.type" class="w-full">
             <n-radio-button
-              value="Buy"
+              v-for="type in transactionTypes"
+              :key="type.value"
+              :value="type.value"
               class="w-1/2 text-center"
-              :style="{
-                '--n-button-text-color-active': transactionTypeColors.Buy.primary,
-                '--n-button-border-color-active': transactionTypeColors.Buy.primary,
-                '--n-button-color-active': `${transactionTypeColors.Buy.primary}1a`,
-                '--n-button-box-shadow-focus': `inset 0 0 0 1px ${transactionTypeColors.Buy.primary}, 0 0 0 2px ${transactionTypeColors.Buy.primary}4d`,
-              }"
-              >買入 Buy</n-radio-button
+              :style="type.style"
             >
-            <n-radio-button
-              value="Sell"
-              class="w-1/2 text-center"
-              :style="{
-                '--n-button-text-color-active': transactionTypeColors.Sell.primary,
-                '--n-button-border-color-active': transactionTypeColors.Sell.primary,
-                '--n-button-color-active': `${transactionTypeColors.Sell.primary}1a`,
-                '--n-button-box-shadow-focus': `inset 0 0 0 1px ${transactionTypeColors.Sell.primary}, 0 0 0 2px ${transactionTypeColors.Sell.primary}4d`,
-              }"
-              >賣出 Sell</n-radio-button
-            >
+              {{ type.label }}
+            </n-radio-button>
           </n-radio-group>
         </n-form-item>
 
-        <!-- 價格 + 數量並排 -->
-        <div class="flex">
+        <!-- 價格 + 數量 -->
+        <div class="flex" :class="isMobile ? 'flex-col' : 'flex-row'">
           <n-form-item label="價格" path="price" class="flex-1">
             <n-input-number
               v-model:value="formData.price"
@@ -268,7 +321,10 @@ watch(
       </n-form>
 
       <!-- 按鈕 -->
-      <div class="mt-4 flex gap-3">
+      <div
+        class="flex gap-3"
+        :class="isMobile ? 'shrink-0 border-t border-gray-100 px-6 py-4' : 'mt-4'"
+      >
         <n-button class="flex-1" size="large" secondary @click="show = false">取消</n-button>
         <n-button
           class="flex-1"

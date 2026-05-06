@@ -3,41 +3,61 @@ import { computed, h, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import {
-  NButton,
-  NDataTable,
-  NTag,
-  NSpace,
-  NSelect,
-  NInput,
-  NFlex,
-  NH2,
-  NText,
-  NEmpty,
-  NPopconfirm,
-  NIcon,
   NAlert,
+  NButton,
+  NCard,
+  NCollapseTransition,
+  NDataTable,
+  NDivider,
+  NEmpty,
+  NFlex,
+  NFloatButton,
+  NH2,
+  NIcon,
+  NInput,
+  NPopconfirm,
+  NSelect,
+  NSpace,
   NSpin,
+  NTag,
+  NText,
   useMessage,
 } from 'naive-ui'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
+import { breakpointsTailwind, useBreakpoints } from '@vueuse/core'
 
-import { AddRound, EditRound, DeleteRound, SearchRound } from '@vicons/material'
+import {
+  AddRound,
+  DeleteRound,
+  EditRound,
+  KeyboardArrowDownRound,
+  SearchRound,
+} from '@vicons/material'
 
+import MarketTag from '@/components/MarketTag.vue'
 import TransactionModal from '@/components/TransactionModal.vue'
 import type { TransactionResponse } from '@/types/transaction'
 import { deleteTransaction, getTransactions } from '@/api/transaction'
-import { marketColors } from '@/utils/colors'
+import { transactionTypeColors } from '@/utils/colors'
+
+// ---- Setup ----
 
 const message = useMessage()
 const route = useRoute()
+const breakpoints = useBreakpoints(breakpointsTailwind)
+const isMobile = breakpoints.smaller('md')
+
+// ---- State ----
 
 const transactions = ref<TransactionResponse[]>([])
 const errorMessage = ref<string | null>(null)
 const isLoading = ref(false)
+const expandedId = ref<number>()
 
-// 篩選
-const filterMarket = ref<string | null>((route.query.stockMarket as string) ?? null)
-const filterType = ref<string | null>(null)
+// ---- 篩選 ----
+
+const filterMarket = ref<string | undefined>((route.query.stockMarket as string) ?? undefined)
+const filterType = ref<string | undefined>(undefined)
 const filterCode = ref((route.query.stockCode as string) ?? '')
 
 const marketOptions: SelectOption[] = [
@@ -47,7 +67,6 @@ const marketOptions: SelectOption[] = [
 ]
 
 const typeOptions: SelectOption[] = [
-  { label: '全部類型', value: undefined },
   { label: '買入', value: 'Buy' },
   { label: '賣出', value: 'Sell' },
 ]
@@ -74,7 +93,8 @@ const filterTransactions = computed<TransactionResponse[]>(() => {
   )
 })
 
-// Modal
+// ---- Modal ----
+
 const showModal = ref(false)
 const editingTransaction = ref<TransactionResponse | null>(null)
 
@@ -88,35 +108,15 @@ const openEdit = (transaction: TransactionResponse) => {
   showModal.value = true
 }
 
-const handleDelete = async (id: number) => {
-  try {
-    const result = await deleteTransaction(id)
+// ---- Table columns（桌機版）----
 
-    if (!result.ok) {
-      message.error(result.message)
-      return
-    }
-
-    loadTransactions()
-  } catch {
-    message.error('網路連線發生問題刪除失敗，請稍後再試')
-  }
-}
-
-// Table columns
 const columns: DataTableColumns<TransactionResponse> = [
   { title: '日期', key: 'date', width: 110, render: (row) => row.date.slice(0, 10) },
   {
     title: '市場',
     key: 'market',
     width: 80,
-    render: (row) => {
-      const color = marketColors[row.market]
-      const style = color
-        ? `color: ${color.secondary}; background: ${color.primary}; font-weight: 600`
-        : 'font-weight: 600'
-      return h(NTag, { size: 'small', bordered: false, style }, { default: () => row.market })
-    },
+    render: (row) => h(MarketTag, { market: row.market }),
   },
   { title: '股票代碼', key: 'stockCode', width: 110 },
   {
@@ -174,6 +174,14 @@ const columns: DataTableColumns<TransactionResponse> = [
   },
 ]
 
+// ---- Helpers ----
+
+const toggleExpand = (id: number) => {
+  expandedId.value = expandedId.value === id ? undefined : id
+}
+
+// ---- API ----
+
 const loadTransactions = async () => {
   isLoading.value = true
 
@@ -193,12 +201,29 @@ const loadTransactions = async () => {
   }
 }
 
+const handleDelete = async (id: number) => {
+  try {
+    const result = await deleteTransaction(id)
+
+    if (!result.ok) {
+      message.error(result.message)
+      return
+    }
+
+    loadTransactions()
+  } catch {
+    message.error('網路連線發生問題刪除失敗，請稍後再試')
+  }
+}
+
+// ---- Lifecycle ----
+
 onMounted(loadTransactions)
 </script>
 
 <template>
   <!-- 頁首 -->
-  <div class="mb-6 flex items-center justify-between">
+  <div v-if="!isMobile" class="mb-6 flex items-center justify-between">
     <n-h2 class="m-0!">
       <n-text type="primary">交易記錄</n-text>
     </n-h2>
@@ -211,7 +236,7 @@ onMounted(loadTransactions)
   </div>
 
   <!-- 篩選列 -->
-  <n-flex class="mb-4" :wrap="false">
+  <n-flex v-if="!isMobile" :wrap="false" class="mb-4 gap-2">
     <n-select
       v-model:value="filterMarket"
       :options="marketOptions"
@@ -233,6 +258,34 @@ onMounted(loadTransactions)
     </n-input>
   </n-flex>
 
+  <!-- 篩選列（手機版） -->
+  <div v-else class="flex flex-col gap-2">
+    <n-flex :wrap="false" class="gap-2">
+      <n-select
+        v-model:value="filterMarket"
+        :options="marketOptions"
+        placeholder="市場"
+        class="flex-1"
+        clearable
+      />
+      <n-select
+        v-model:value="filterType"
+        :options="typeOptions"
+        placeholder="類型"
+        class="flex-1"
+        clearable
+      />
+    </n-flex>
+    <n-input v-model:value="filterCode" placeholder="搜尋股票代碼" class="w-full" clearable>
+      <template #prefix>
+        <n-icon><SearchRound /></n-icon>
+      </template>
+    </n-input>
+  </div>
+
+  <!-- 篩選與內容分界（手機版） -->
+  <n-divider v-if="isMobile" class="my-3!" />
+
   <!-- 載入中 -->
   <div v-if="isLoading" class="flex justify-center py-20">
     <n-spin size="large" />
@@ -244,18 +297,105 @@ onMounted(loadTransactions)
       errorMessage
     }}</n-alert>
 
-    <!-- 表格資料 -->
-    <n-data-table
-      v-else-if="filterTransactions.length > 0"
-      :columns="columns"
-      :data="filterTransactions"
-      :bordered="false"
-      striped
-    />
+    <template v-else-if="filterTransactions.length > 0">
+      <!-- 交易紀錄表格 -->
+      <n-data-table
+        v-if="!isMobile"
+        :columns="columns"
+        :data="filterTransactions"
+        :bordered="false"
+        striped
+      />
+
+      <!-- 手機版 -->
+      <div v-else class="flex flex-col gap-3">
+        <n-card
+          v-for="transaction in filterTransactions"
+          :key="transaction.id"
+          size="medium"
+          :bordered="false"
+          content-style="padding: 0;"
+          class="overflow-hidden shadow"
+          @click="toggleExpand(transaction.id)"
+        >
+          <div class="flex">
+            <!-- 左色條 -->
+            <div
+              class="w-1 shrink-0"
+              :style="{ background: transactionTypeColors[transaction.type].primary }"
+            />
+
+            <div class="flex-1 p-3">
+              <!-- 卡片頭 -->
+              <div class="mb-2 flex items-center gap-2">
+                <MarketTag :market="transaction.market" />
+                <n-text class="text-base font-semibold">{{ transaction.stockCode }}</n-text>
+                <n-tag
+                  size="small"
+                  :bordered="false"
+                  :type="transaction.type === 'Buy' ? 'error' : 'success'"
+                  class="ml-auto"
+                >
+                  {{ transaction.type === 'Buy' ? '買入' : '賣出' }}
+                </n-tag>
+                <n-icon
+                  size="20"
+                  class="text-gray-400 transition-transform duration-200"
+                  :class="{ 'rotate-180': expandedId === transaction.id }"
+                >
+                  <KeyboardArrowDownRound />
+                </n-icon>
+              </div>
+
+              <!-- 卡片內容 -->
+              <div class="flex items-center justify-between text-sm">
+                <n-text depth="3">{{ transaction.date.slice(0, 10) }}</n-text>
+                <n-text>
+                  <span class="text-xs opacity-70">
+                    {{ transaction.quantity }} 股 × ${{ transaction.price }} =
+                  </span>
+                  <span class="ml-1 font-semibold">
+                    ${{ (transaction.quantity * transaction.price).toLocaleString() }}
+                  </span>
+                </n-text>
+              </div>
+
+              <!-- 展開的操作區 -->
+              <n-collapse-transition :show="expandedId === transaction.id">
+                <n-divider class="my-2!" />
+                <div class="flex justify-end gap-2" @click.stop>
+                  <n-button size="small" secondary @click="openEdit(transaction)">
+                    <template #icon>
+                      <n-icon><EditRound /></n-icon>
+                    </template>
+                    編輯
+                  </n-button>
+                  <n-popconfirm
+                    :positive-text="'確定'"
+                    :negative-text="'取消'"
+                    @positive-click="handleDelete(transaction.id)"
+                  >
+                    <template #trigger>
+                      <n-button size="small" secondary type="error">
+                        <template #icon>
+                          <n-icon><DeleteRound /></n-icon>
+                        </template>
+                        刪除
+                      </n-button>
+                    </template>
+                    確定要刪除這筆交易嗎？
+                  </n-popconfirm>
+                </div>
+              </n-collapse-transition>
+            </div>
+          </div>
+        </n-card>
+      </div>
+    </template>
 
     <!-- 空資料 -->
     <div v-else-if="transactions.length === 0" class="flex justify-center py-20">
-      <n-empty description="尚無交易記錄，點擊右上角新增第一筆吧！" />
+      <n-empty description="尚無交易記錄，點擊新增按鈕建立第一筆紀錄吧！" />
     </div>
 
     <!-- 篩選後無資料 -->
@@ -263,6 +403,11 @@ onMounted(loadTransactions)
       <n-empty description="找不到符合條件的交易記錄" />
     </div>
   </template>
+
+  <!-- 手機版浮動新增按鈕 -->
+  <n-float-button v-if="isMobile" :right="16" :bottom="80" type="primary" @click="openCreate">
+    <n-icon><AddRound /></n-icon>
+  </n-float-button>
 
   <!-- 新增/編輯 Modal -->
   <TransactionModal

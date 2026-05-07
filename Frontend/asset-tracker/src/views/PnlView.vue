@@ -2,10 +2,13 @@
 import { computed, h, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { breakpointsTailwind, useBreakpoints } from '@vueuse/core'
 import {
   NAlert,
+  NButton,
   NCard,
   NDataTable,
+  NDivider,
   NEmpty,
   NFlex,
   NGi,
@@ -13,31 +16,28 @@ import {
   NH2,
   NIcon,
   NInput,
+  NPopselect,
+  NRadioButton,
+  NRadioGroup,
   NSelect,
   NSpin,
   NStatistic,
   NText,
-  NRadioGroup,
-  NRadioButton,
   type DataTableColumns,
   type SelectOption,
 } from 'naive-ui'
 import { SearchRound } from '@vicons/material'
 
+import { getExchangeRate } from '@/api/exchangeRate'
 import { getRealizedPnl } from '@/api/Position'
+import { getLatestStockInfos } from '@/api/stock'
+import MarketTag from '@/components/MarketTag.vue'
+import { currencies, marketCurrencyMap } from '@/constants/common'
 import type { CurrencyType, MarketType } from '@/types/common'
 import type { EnrichedRealizedPnl, RealizedPnlResponse } from '@/types/Position'
-import { getPnlRowColor, getPnlTextColor, pnlColors } from '@/utils/colors'
-import MarketTag from '@/components/MarketTag.vue'
-import {
-  getPnlRowClassName,
-  renderCurrencyHintTitle,
-  renderTwoLine,
-} from '@/utils/tableHelpers'
-import { getExchangeRate } from '@/api/exchangeRate'
-import { currencies, marketCurrencyMap } from '@/constants/common'
-import { getLatestStockInfos } from '@/api/stock'
 import type { StockInfoResponse } from '@/types/stock'
+import { getPnlRowColor, getPnlTextColor, pnlColors } from '@/utils/colors'
+import { getPnlRowClassName, renderCurrencyHintTitle, renderTwoLine } from '@/utils/tableHelpers'
 
 const router = useRouter()
 
@@ -49,6 +49,9 @@ const stockInfos = ref<StockInfoResponse[]>([])
 const isLoading = ref<boolean>(true)
 const errorMessage = ref('')
 const displayCurrency = ref<CurrencyType>('TWD')
+
+const breakpoints = useBreakpoints(breakpointsTailwind)
+const isMobile = breakpoints.smaller('md')
 
 const enrichedRealizedPnl = computed<EnrichedRealizedPnl[]>(() =>
   realizedPnl.value.map((r) => {
@@ -91,6 +94,8 @@ const marketOptions: SelectOption[] = [
   { label: '美股 US', value: 'US' },
   { label: '日股 JP', value: 'JP' },
 ]
+
+const currencyOptions = currencies.map((c) => ({ label: c, value: c }))
 
 const filteredRecords = computed(() => {
   const marketFilter = (record: EnrichedRealizedPnl) => {
@@ -248,7 +253,7 @@ onMounted(async () => {
 
 <template>
   <!-- 頁首 -->
-  <div class="mb-6 flex items-center justify-between">
+  <div v-if="!isMobile" class="mb-6 flex items-center justify-between">
     <n-h2 class="m-0!">
       <n-text type="primary">損益分析</n-text>
     </n-h2>
@@ -260,7 +265,14 @@ onMounted(async () => {
   </div>
 
   <!-- 統計卡片 -->
-  <n-grid cols="1 s:2 m:4" responsive="screen" :x-gap="16" :y-gap="16" class="mb-4">
+  <n-grid
+    v-if="!isMobile"
+    cols="1 s:2 m:4"
+    responsive="screen"
+    :x-gap="16"
+    :y-gap="16"
+    class="mb-4"
+  >
     <n-gi>
       <n-card size="small" bordered class="h-full">
         <n-statistic label="獲利筆數">
@@ -296,8 +308,44 @@ onMounted(async () => {
     </n-gi>
   </n-grid>
 
+  <!-- 統計卡片（手機版） -->
+  <n-card v-else class="mb-3 shadow" :bordered="false">
+    <div class="mb-1 flex items-center justify-between gap-2">
+      <n-text depth="3" class="text-sm">已實現損益總計</n-text>
+      <n-popselect
+        v-model:value="displayCurrency"
+        :options="currencyOptions"
+        trigger="click"
+        @update:value="handleCurrencyChange"
+      >
+        <n-button size="tiny" secondary round type="info">
+          {{ displayCurrency }}
+        </n-button>
+      </n-popselect>
+    </div>
+
+    <n-text :style="{ color: getPnlTextColor(totalPnl) }" class="block text-3xl font-bold">
+      {{ formatPnl(totalPnl) }}
+    </n-text>
+
+    <div class="mt-2 flex items-center gap-4 text-sm">
+      <div class="flex items-center gap-1">
+        <n-text depth="3">獲利</n-text>
+        <n-text :style="{ color: pnlColors.profit.primary }" class="font-semibold">
+          {{ winCount }}
+        </n-text>
+      </div>
+      <div class="flex items-center gap-1">
+        <n-text depth="3">虧損</n-text>
+        <n-text :style="{ color: pnlColors.loss.primary }" class="font-semibold">
+          {{ lossCount }}
+        </n-text>
+      </div>
+    </div>
+  </n-card>
+
   <!-- 篩選列 -->
-  <n-flex class="mb-4" :wrap="false">
+  <n-flex v-if="!isMobile" class="mb-4" :wrap="false">
     <n-select
       v-model:value="filterMarket"
       :options="marketOptions"
@@ -312,6 +360,25 @@ onMounted(async () => {
     </n-input>
   </n-flex>
 
+  <!-- 篩選列（手機版） -->
+  <n-flex v-else :wrap="false" class="mb-1 gap-2">
+    <n-select
+      v-model:value="filterMarket"
+      :options="marketOptions"
+      placeholder="市場"
+      class="flex-1"
+      clearable
+    />
+    <n-input v-model:value="filterCode" placeholder="搜尋股票代碼" class="flex-1" clearable>
+      <template #prefix>
+        <n-icon><SearchRound /></n-icon>
+      </template>
+    </n-input>
+  </n-flex>
+
+  <!-- 篩選與內容分界（手機版） -->
+  <n-divider v-if="isMobile" class="my-3!" />
+
   <!-- 載入中 -->
   <div v-if="isLoading" class="flex justify-center py-20">
     <n-spin size="large" />
@@ -324,7 +391,12 @@ onMounted(async () => {
     </n-alert>
 
     <!-- 表格資料 -->
-    <n-card v-else-if="filteredRecords.length > 0" title="損益明細" size="small" bordered>
+    <n-card
+      v-else-if="!isMobile && filteredRecords.length > 0"
+      title="損益明細"
+      size="small"
+      bordered
+    >
       <n-data-table
         :columns="columns"
         :data="filteredRecords"
@@ -334,6 +406,82 @@ onMounted(async () => {
         :bordered="false"
       />
     </n-card>
+
+    <!-- 卡片資料（手機版） -->
+    <div v-else-if="isMobile && filteredRecords.length > 0" class="flex flex-col gap-3">
+      <n-card
+        v-for="record in filteredRecords"
+        :key="`${record.date}-${record.stockMarket}-${record.stockCode}`"
+        size="medium"
+        :bordered="false"
+        content-style="padding: 0;"
+        class="overflow-hidden shadow"
+        @click="
+          router.push({
+            path: '/transactions',
+            query: { stockCode: record.stockCode, stockMarket: record.stockMarket },
+          })
+        "
+      >
+        <div class="flex">
+          <div
+            class="w-1 shrink-0"
+            :style="{
+              background:
+                record.pnl > 0
+                  ? pnlColors.profit.primary
+                  : record.pnl < 0
+                    ? pnlColors.loss.primary
+                    : 'transparent',
+            }"
+          />
+
+          <div class="flex-1 p-3">
+            <div class="mb-2 flex items-center gap-2">
+              <MarketTag :market="record.stockMarket" />
+              <div class="flex flex-col leading-tight">
+                <n-text class="text-base font-semibold">{{ record.stockCode }}</n-text>
+                <n-text v-if="record.stockName" depth="3" class="text-xs">
+                  {{ record.stockName }}
+                </n-text>
+              </div>
+              <n-text depth="3" class="ml-auto text-xs">
+                {{ record.date.slice(0, 10) }}
+              </n-text>
+            </div>
+
+            <div class="flex items-end justify-between text-sm">
+              <div class="flex flex-col gap-0.5">
+                <n-text depth="3" class="text-xs">
+                  買 ${{ record.buyPrice }} → 賣 ${{ record.sellPrice }}
+                </n-text>
+                <n-text depth="3" class="text-xs">數量 {{ record.sellQuantity }}</n-text>
+              </div>
+              <div class="flex flex-col items-end leading-tight">
+                <n-text
+                  :style="{ color: getPnlTextColor(record.convertedPnl) }"
+                  class="text-lg font-bold"
+                >
+                  {{ formatPnl(record.convertedPnl) }}
+                </n-text>
+                <n-text
+                  v-if="record.pnlRate !== undefined"
+                  :style="{ color: getPnlTextColor(record.convertedPnl) }"
+                  class="text-xs"
+                >
+                  {{
+                    record.pnlRate.toLocaleString(undefined, {
+                      style: 'percent',
+                      maximumFractionDigits: 2,
+                    })
+                  }}
+                </n-text>
+              </div>
+            </div>
+          </div>
+        </div>
+      </n-card>
+    </div>
 
     <!-- 空資料 -->
     <div v-else-if="enrichedRealizedPnl.length === 0" class="flex justify-center py-20">

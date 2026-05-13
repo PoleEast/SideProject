@@ -348,9 +348,9 @@ onMounted(loadTransactions)
               </div>
 
               <!-- 卡片內容 -->
-              <div class="flex items-center justify-between text-sm">
-                <n-text depth="3">{{ transaction.date.slice(0, 10) }}</n-text>
-                <n-text>
+              <div class="flex items-center justify-between gap-2 text-sm">
+                <n-text depth="3" class="shrink-0">{{ transaction.date.slice(0, 10) }}</n-text>
+                <n-text class="min-w-0 text-right">
                   <span class="text-xs opacity-70">
                     {{ transaction.quantity }} 股 × ${{ transaction.price }} =
                   </span>

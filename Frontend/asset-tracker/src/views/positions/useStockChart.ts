@@ -46,6 +46,7 @@ export const useStockChart = (positions: Ref<DisplayedPosition[]>) => {
             color: '#999',
           },
         },
+        overflow: 'truncate',
       },
     },
     series: [

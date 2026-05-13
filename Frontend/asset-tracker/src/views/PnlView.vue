@@ -457,7 +457,7 @@ onMounted(async () => {
                 </n-text>
                 <n-text depth="3" class="text-xs">數量 {{ record.sellQuantity }}</n-text>
               </div>
-              <div class="flex flex-col items-end leading-tight">
+              <div class="flex shrink-0 flex-col items-end leading-tight whitespace-nowrap">
                 <n-text
                   :style="{ color: getPnlTextColor(record.convertedPnl) }"
                   class="text-lg font-bold"

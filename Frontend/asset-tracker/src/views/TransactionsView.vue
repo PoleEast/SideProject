@@ -36,14 +36,18 @@ import {
 
 import MarketTag from '@/components/MarketTag.vue'
 import TransactionModal from '@/components/TransactionModal.vue'
+import TableSkeleton from '@/components/TableSkeleton.vue'
+import CardListSkeleton from '@/components/CardListSkeleton.vue'
 import type { TransactionResponse } from '@/types/transaction'
 import { deleteTransaction, getTransactions } from '@/api/transaction'
 import { transactionTypeColors } from '@/utils/colors'
+import { useNetworkLoadingBar } from '@/composables/useNetworkLoadingBar'
 
 // ---- Setup ----
 
 const message = useMessage()
 const route = useRoute()
+useNetworkLoadingBar()
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoints.smaller('md')
 
@@ -51,8 +55,10 @@ const isMobile = breakpoints.smaller('md')
 
 const transactions = ref<TransactionResponse[]>([])
 const errorMessage = ref<string | null>(null)
-const isLoading = ref(false)
 const expandedId = ref<number>()
+const isInitialLoading = ref<boolean>(true)
+const isRefreshing = ref<boolean>(false)
+const deletingId = ref<number>()
 
 // ---- 篩選 ----
 
@@ -162,7 +168,12 @@ const columns: DataTableColumns<TransactionResponse> = [
                 trigger: () =>
                   h(
                     NButton,
-                    { size: 'small', quaternary: true, type: 'error' },
+                    {
+                      size: 'small',
+                      quaternary: true,
+                      type: 'error',
+                      loading: deletingId.value === row.id,
+                    },
                     { icon: () => h(NIcon, null, { default: () => h(DeleteRound) }) },
                   ),
                 default: () => '確定要刪除這筆交易嗎？',
@@ -183,8 +194,7 @@ const toggleExpand = (id: number) => {
 // ---- API ----
 
 const loadTransactions = async () => {
-  isLoading.value = true
-
+  isRefreshing.value = true
   try {
     const result = await getTransactions()
 
@@ -197,11 +207,12 @@ const loadTransactions = async () => {
   } catch {
     errorMessage.value = '網路連線發生問題，請稍後再試'
   } finally {
-    isLoading.value = false
+    isRefreshing.value = false
   }
 }
 
 const handleDelete = async (id: number) => {
+  deletingId.value = id
   try {
     const result = await deleteTransaction(id)
 
@@ -210,15 +221,20 @@ const handleDelete = async (id: number) => {
       return
     }
 
-    loadTransactions()
+    await loadTransactions()
   } catch {
     message.error('網路連線發生問題刪除失敗，請稍後再試')
+  } finally {
+    deletingId.value = undefined
   }
 }
 
 // ---- Lifecycle ----
 
-onMounted(loadTransactions)
+onMounted(async () => {
+  await loadTransactions()
+  isInitialLoading.value = false
+})
 </script>
 
 <template>
@@ -286,10 +302,11 @@ onMounted(loadTransactions)
   <!-- 篩選與內容分界（手機版） -->
   <n-divider v-if="isMobile" class="my-3!" />
 
-  <!-- 載入中 -->
-  <div v-if="isLoading" class="flex justify-center py-20">
-    <n-spin size="large" />
-  </div>
+  <!-- 初次載入：顯示 Skeleton -->
+  <template v-if="isInitialLoading">
+    <TableSkeleton v-if="!isMobile" :rows="8" />
+    <CardListSkeleton v-else :count="6" />
+  </template>
 
   <template v-else>
     <!-- 錯誤提示 -->
@@ -303,94 +320,102 @@ onMounted(loadTransactions)
         v-if="!isMobile"
         :columns="columns"
         :data="filterTransactions"
+        :loading="isRefreshing"
         :bordered="false"
         striped
       />
 
       <!-- 手機版 -->
-      <div v-else class="flex flex-col gap-3">
-        <n-card
-          v-for="transaction in filterTransactions"
-          :key="transaction.id"
-          size="medium"
-          :bordered="false"
-          content-style="padding: 0;"
-          class="overflow-hidden shadow"
-          @click="toggleExpand(transaction.id)"
-        >
-          <div class="flex">
-            <!-- 左色條 -->
-            <div
-              class="w-1 shrink-0"
-              :style="{ background: transactionTypeColors[transaction.type].primary }"
-            />
+      <n-spin v-else :show="isRefreshing">
+        <div class="flex flex-col gap-3">
+          <n-card
+            v-for="transaction in filterTransactions"
+            :key="transaction.id"
+            size="medium"
+            :bordered="false"
+            content-style="padding: 0;"
+            class="overflow-hidden shadow"
+            @click="toggleExpand(transaction.id)"
+          >
+            <div class="flex">
+              <!-- 左色條 -->
+              <div
+                class="w-1 shrink-0"
+                :style="{ background: transactionTypeColors[transaction.type].primary }"
+              />
 
-            <div class="flex-1 p-3">
-              <!-- 卡片頭 -->
-              <div class="mb-2 flex items-center gap-2">
-                <MarketTag :market="transaction.market" />
-                <n-text class="text-base font-semibold">{{ transaction.stockCode }}</n-text>
-                <n-tag
-                  size="small"
-                  :bordered="false"
-                  :type="transaction.type === 'Buy' ? 'error' : 'success'"
-                  class="ml-auto"
-                >
-                  {{ transaction.type === 'Buy' ? '買入' : '賣出' }}
-                </n-tag>
-                <n-icon
-                  size="20"
-                  class="text-gray-400 transition-transform duration-200"
-                  :class="{ 'rotate-180': expandedId === transaction.id }"
-                >
-                  <KeyboardArrowDownRound />
-                </n-icon>
-              </div>
-
-              <!-- 卡片內容 -->
-              <div class="flex items-center justify-between gap-2 text-sm">
-                <n-text depth="3" class="shrink-0">{{ transaction.date.slice(0, 10) }}</n-text>
-                <n-text class="min-w-0 text-right">
-                  <span class="text-xs opacity-70">
-                    {{ transaction.quantity }} 股 × ${{ transaction.price }} =
-                  </span>
-                  <span class="ml-1 font-semibold">
-                    ${{ (transaction.quantity * transaction.price).toLocaleString() }}
-                  </span>
-                </n-text>
-              </div>
-
-              <!-- 展開的操作區 -->
-              <n-collapse-transition :show="expandedId === transaction.id">
-                <n-divider class="my-2!" />
-                <div class="flex justify-end gap-2" @click.stop>
-                  <n-button size="small" secondary @click="openEdit(transaction)">
-                    <template #icon>
-                      <n-icon><EditRound /></n-icon>
-                    </template>
-                    編輯
-                  </n-button>
-                  <n-popconfirm
-                    :positive-text="'確定'"
-                    :negative-text="'取消'"
-                    @positive-click="handleDelete(transaction.id)"
+              <div class="flex-1 p-3">
+                <!-- 卡片頭 -->
+                <div class="mb-2 flex items-center gap-2">
+                  <MarketTag :market="transaction.market" />
+                  <n-text class="text-base font-semibold">{{ transaction.stockCode }}</n-text>
+                  <n-tag
+                    size="small"
+                    :bordered="false"
+                    :type="transaction.type === 'Buy' ? 'error' : 'success'"
+                    class="ml-auto"
                   >
-                    <template #trigger>
-                      <n-button size="small" secondary type="error">
-                        <template #icon>
-                          <n-icon><DeleteRound /></n-icon>
-                        </template>
-                        刪除
-                      </n-button>
-                    </template>
-                    確定要刪除這筆交易嗎？
-                  </n-popconfirm>
+                    {{ transaction.type === 'Buy' ? '買入' : '賣出' }}
+                  </n-tag>
+                  <n-icon
+                    size="20"
+                    class="text-gray-400 transition-transform duration-200"
+                    :class="{ 'rotate-180': expandedId === transaction.id }"
+                  >
+                    <KeyboardArrowDownRound />
+                  </n-icon>
                 </div>
-              </n-collapse-transition>
+
+                <!-- 卡片內容 -->
+                <div class="flex items-center justify-between gap-2 text-sm">
+                  <n-text depth="3" class="shrink-0">{{ transaction.date.slice(0, 10) }}</n-text>
+                  <n-text class="min-w-0 text-right">
+                    <span class="text-xs opacity-70">
+                      {{ transaction.quantity }} 股 × ${{ transaction.price }} =
+                    </span>
+                    <span class="ml-1 font-semibold">
+                      ${{ (transaction.quantity * transaction.price).toLocaleString() }}
+                    </span>
+                  </n-text>
+                </div>
+
+                <!-- 展開的操作區 -->
+                <n-collapse-transition :show="expandedId === transaction.id">
+                  <n-divider class="my-2!" />
+                  <div class="flex justify-end gap-2" @click.stop>
+                    <n-button size="small" secondary @click="openEdit(transaction)">
+                      <template #icon>
+                        <n-icon><EditRound /></n-icon>
+                      </template>
+                      編輯
+                    </n-button>
+                    <n-popconfirm
+                      :positive-text="'確定'"
+                      :negative-text="'取消'"
+                      @positive-click="handleDelete(transaction.id)"
+                    >
+                      <template #trigger>
+                        <n-button
+                          size="small"
+                          secondary
+                          type="error"
+                          :loading="deletingId === transaction.id"
+                        >
+                          <template #icon>
+                            <n-icon><DeleteRound /></n-icon>
+                          </template>
+                          刪除
+                        </n-button>
+                      </template>
+                      確定要刪除這筆交易嗎？
+                    </n-popconfirm>
+                  </div>
+                </n-collapse-transition>
+              </div>
             </div>
-          </div>
-        </n-card>
-      </div>
+          </n-card>
+        </div>
+      </n-spin>
     </template>
 
     <!-- 空資料 -->

@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/stores/auth'
+import { useNetworkStore } from '@/stores/network'
 
 export const authHeaders = (token: string) => {
   return {
@@ -16,18 +17,26 @@ export class UnauthorizedError extends Error {
 
 export const authFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const authStore = useAuthStore()
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...authHeaders(authStore.token ?? ''),
-      ...options.headers,
-    },
-  })
+  const networkStore = useNetworkStore()
 
-  if (response.status === 401) {
-    authStore.logout()
-    throw new UnauthorizedError()
+  networkStore.start()
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...authHeaders(authStore.token ?? ''),
+        ...options.headers,
+      },
+    })
+
+    if (response.status === 401) {
+      authStore.logout()
+      throw new UnauthorizedError()
+    }
+
+    return response
+  } finally {
+    networkStore.finish()
   }
-
-  return response
 }

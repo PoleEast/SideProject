@@ -40,10 +40,13 @@ import type { StockPriceResponse } from '@/types/stock'
 import { getChartColor, getPnlTextColor, marketColors, pnlColors } from '@/utils/colors'
 import MarketTag from '@/components/MarketTag.vue'
 import ProportionBar, { type ProportionItem } from '@/components/ProportionBar.vue'
+import TableSkeleton from '@/components/TableSkeleton.vue'
+import CardListSkeleton from '@/components/CardListSkeleton.vue'
 
 import { useMarketChart } from './useMarketChart'
 import { usePositionColumns } from './usePositionColumns'
 import { useStockChart } from './useStockChart'
+import { useNetworkLoadingBar } from '@/composables/useNetworkLoadingBar'
 
 use([
   CanvasRenderer,
@@ -56,14 +59,16 @@ use([
 ])
 
 const router = useRouter()
-
+useNetworkLoadingBar()
 // ---- State ----
 
 const errorMessage = ref('')
-const isLoading = ref(false)
 const positions = ref<PositionResponse[]>([])
 const conversionRates = ref<ExchangeRateResponse>()
 const stockPrices = ref<StockPriceResponse[]>([])
+
+const isInitialLoading = ref<boolean>(true)
+const isRefreshing = ref<boolean>(false)
 
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoints.smaller('md')
@@ -157,8 +162,8 @@ const formatPnl = (value: number | undefined) => {
 // ---- Event Handlers ----
 
 const handleCurrencyChange = async () => {
-  isLoading.value = true
   try {
+    isRefreshing.value = true
     const exchangeRateResult = await getExchangeRate(displayCurrency.value)
 
     if (!exchangeRateResult.ok) {
@@ -171,14 +176,13 @@ const handleCurrencyChange = async () => {
   } catch {
     errorMessage.value = '網路連線發生問題，請稍後再試'
   } finally {
-    isLoading.value = false
+    isRefreshing.value = false
   }
 }
 
 // ---- Lifecycle ----
 
 onMounted(async () => {
-  isLoading.value = true
   try {
     const [positionResult, exchangeRateResult] = await Promise.all([
       getPosition(),
@@ -216,7 +220,7 @@ onMounted(async () => {
     errorMessage.value = '網路連線發生問題，請稍後再試'
   } finally {
     recalcMarketTotal()
-    isLoading.value = false
+    isInitialLoading.value = false
   }
 })
 </script>
@@ -234,10 +238,30 @@ onMounted(async () => {
     </n-radio-group>
   </div>
 
-  <!-- 載入中 -->
-  <div v-if="isLoading" class="flex justify-center py-20">
-    <n-spin size="large" />
-  </div>
+  <!-- 初次載入：顯示 Skeleton -->
+  <template v-if="isInitialLoading">
+    <div v-if="!isMobile">
+      <div class="mb-4 grid h-100 grid-cols-2 gap-4">
+        <n-card size="small" bordered class="h-full">
+          <div class="flex h-full items-center justify-center">
+            <n-spin />
+          </div>
+        </n-card>
+        <n-card size="small" bordered class="h-full">
+          <div class="flex h-full items-center justify-center">
+            <n-spin />
+          </div>
+        </n-card>
+      </div>
+      <n-card title="持倉明細" size="small" bordered>
+        <TableSkeleton :rows="6" />
+      </n-card>
+    </div>
+    <div v-else>
+      <CardListSkeleton class="mb-3" :count="2" />
+      <CardListSkeleton :count="4" />
+    </div>
+  </template>
 
   <template v-else>
     <!-- 錯誤提示 -->
@@ -290,6 +314,7 @@ onMounted(async () => {
           :data="displayedPositions"
           :row-props="rowProps"
           :row-class-name="rowClassName"
+          :loading="isRefreshing"
           :bordered="false"
           :scroll-x="700"
           striped
@@ -297,94 +322,96 @@ onMounted(async () => {
       </n-card>
 
       <!-- 持倉卡片列表（手機版） -->
-      <div v-else class="flex flex-col gap-3">
-        <n-card
-          v-for="position in displayedPositions"
-          :key="`${position.stockMarket}-${position.stockCode}`"
-          size="medium"
-          :bordered="false"
-          content-style="padding: 0;"
-          class="overflow-hidden shadow"
-          @click="
-            router.push({
-              path: '/transactions',
-              query: { stockCode: position.stockCode, stockMarket: position.stockMarket },
-            })
-          "
-        >
-          <div class="flex">
-            <div
-              class="w-1 shrink-0"
-              :style="{
-                background:
-                  position.unrealizedPnl !== undefined && position.unrealizedPnl > 0
-                    ? pnlColors.profit.primary
-                    : position.unrealizedPnl !== undefined && position.unrealizedPnl < 0
-                      ? pnlColors.loss.primary
-                      : 'transparent',
-              }"
-            />
+      <n-spin v-else :show="isRefreshing">
+        <div class="flex flex-col gap-3">
+          <n-card
+            v-for="position in displayedPositions"
+            :key="`${position.stockMarket}-${position.stockCode}`"
+            size="medium"
+            :bordered="false"
+            content-style="padding: 0;"
+            class="overflow-hidden shadow"
+            @click="
+              router.push({
+                path: '/transactions',
+                query: { stockCode: position.stockCode, stockMarket: position.stockMarket },
+              })
+            "
+          >
+            <div class="flex">
+              <div
+                class="w-1 shrink-0"
+                :style="{
+                  background:
+                    position.unrealizedPnl !== undefined && position.unrealizedPnl > 0
+                      ? pnlColors.profit.primary
+                      : position.unrealizedPnl !== undefined && position.unrealizedPnl < 0
+                        ? pnlColors.loss.primary
+                        : 'transparent',
+                }"
+              />
 
-            <div class="flex-1 p-3">
-              <!-- 市場 + 代碼/名稱 + 現價 -->
-              <div class="mb-2 flex items-center gap-2">
-                <MarketTag :market="position.stockMarket" />
-                <div class="flex min-w-0 flex-col leading-tight">
-                  <n-text class="text-base font-semibold">{{ position.stockCode }}</n-text>
-                  <n-text v-if="position.stockName" depth="3" class="truncate text-xs">
-                    {{ position.stockName }}
-                  </n-text>
-                </div>
-                <div
-                  v-if="position.currentPrice !== undefined"
-                  class="ml-auto flex shrink-0 items-baseline gap-2"
-                >
-                  <n-text depth="3" class="text-xs">現價</n-text>
-                  <n-text class="text-base font-semibold"> ${{ position.currentPrice }} </n-text>
-                </div>
-              </div>
-
-              <!-- 成本算式 + 未實現損益 -->
-              <div class="flex items-end justify-between gap-2 text-sm">
-                <n-text class="min-w-0 self-end">
-                  <span class="text-xs opacity-70">
-                    {{ position.quantity }} 股 × ${{ position.averagePrice }} =
-                  </span>
-                  <span class="ml-1 font-semibold">
-                    ${{
-                      position.convertedTotalCost?.toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                      }) ?? '-'
-                    }}
-                  </span>
-                </n-text>
-
-                <!-- 未實現損益 + 損益率 -->
-                <div class="flex shrink-0 flex-col items-end leading-tight whitespace-nowrap">
-                  <n-text
-                    :style="{ color: getPnlTextColor(position.unrealizedPnl) }"
-                    class="text-lg font-bold"
+              <div class="flex-1 p-3">
+                <!-- 市場 + 代碼/名稱 + 現價 -->
+                <div class="mb-2 flex items-center gap-2">
+                  <MarketTag :market="position.stockMarket" />
+                  <div class="flex min-w-0 flex-col leading-tight">
+                    <n-text class="text-base font-semibold">{{ position.stockCode }}</n-text>
+                    <n-text v-if="position.stockName" depth="3" class="truncate text-xs">
+                      {{ position.stockName }}
+                    </n-text>
+                  </div>
+                  <div
+                    v-if="position.currentPrice !== undefined"
+                    class="ml-auto flex shrink-0 items-baseline gap-2"
                   >
-                    {{ formatPnl(position.convertedUnrealizedPnl) }}
+                    <n-text depth="3" class="text-xs">現價</n-text>
+                    <n-text class="text-base font-semibold"> ${{ position.currentPrice }} </n-text>
+                  </div>
+                </div>
+
+                <!-- 成本算式 + 未實現損益 -->
+                <div class="flex items-end justify-between gap-2 text-sm">
+                  <n-text class="min-w-0 self-end">
+                    <span class="text-xs opacity-70">
+                      {{ position.quantity }} 股 × ${{ position.averagePrice }} =
+                    </span>
+                    <span class="ml-1 font-semibold">
+                      ${{
+                        position.convertedTotalCost?.toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        }) ?? '-'
+                      }}
+                    </span>
                   </n-text>
-                  <n-text
-                    v-if="position.unrealizedPnlRate !== undefined"
-                    :style="{ color: getPnlTextColor(position.unrealizedPnl) }"
-                    class="text-xs"
-                  >
-                    {{
-                      position.unrealizedPnlRate.toLocaleString(undefined, {
-                        style: 'percent',
-                        maximumFractionDigits: 2,
-                      })
-                    }}
-                  </n-text>
+
+                  <!-- 未實現損益 + 損益率 -->
+                  <div class="flex shrink-0 flex-col items-end leading-tight whitespace-nowrap">
+                    <n-text
+                      :style="{ color: getPnlTextColor(position.unrealizedPnl) }"
+                      class="text-lg font-bold"
+                    >
+                      {{ formatPnl(position.convertedUnrealizedPnl) }}
+                    </n-text>
+                    <n-text
+                      v-if="position.unrealizedPnlRate !== undefined"
+                      :style="{ color: getPnlTextColor(position.unrealizedPnl) }"
+                      class="text-xs"
+                    >
+                      {{
+                        position.unrealizedPnlRate.toLocaleString(undefined, {
+                          style: 'percent',
+                          maximumFractionDigits: 2,
+                        })
+                      }}
+                    </n-text>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </n-card>
-      </div>
+          </n-card>
+        </div>
+      </n-spin>
     </template>
 
     <!-- 空資料 -->

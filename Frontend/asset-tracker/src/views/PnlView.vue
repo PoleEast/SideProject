@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 
 import { breakpointsTailwind, useBreakpoints } from '@vueuse/core'
 import {
-  NAlert,
   NButton,
   NCard,
   NDataTable,
@@ -41,9 +40,15 @@ import type { StockInfoResponse } from '@/types/stock'
 import { getPnlRowColor, getPnlTextColor, pnlColors } from '@/utils/colors'
 import { getPnlRowClassName, renderCurrencyHintTitle, renderTwoLine } from '@/utils/tableHelpers'
 import { useNetworkLoadingBar } from '@/composables/useNetworkLoadingBar'
+import { useApiToast } from '@/composables/useApiToast'
 
 const router = useRouter()
+const { handle } = useApiToast()
 useNetworkLoadingBar()
+
+const breakpoints = useBreakpoints(breakpointsTailwind)
+const isMobile = breakpoints.smaller('md')
+
 // ---- State ----
 
 const realizedPnl = ref<RealizedPnlResponse[]>([])
@@ -51,11 +56,8 @@ const conversionRates = ref<Record<CurrencyType, number>>()
 const stockInfos = ref<StockInfoResponse[]>([])
 const isInitialLoading = ref<boolean>(true)
 const isRefreshing = ref<boolean>(false)
-const errorMessage = ref('')
+const isInitError = ref<boolean>(false)
 const displayCurrency = ref<CurrencyType>('TWD')
-
-const breakpoints = useBreakpoints(breakpointsTailwind)
-const isMobile = breakpoints.smaller('md')
 
 const enrichedRealizedPnl = computed<EnrichedRealizedPnl[]>(() =>
   realizedPnl.value.map((r) => {
@@ -194,63 +196,44 @@ const rowProps = (row: EnrichedRealizedPnl) => {
 
 const handleCurrencyChange = async () => {
   isRefreshing.value = true
-  try {
-    const exchangeRateResult = await getExchangeRate(displayCurrency.value)
 
-    if (!exchangeRateResult.ok) {
-      errorMessage.value = exchangeRateResult.message
-      return
-    }
+  const exchangeResult = await handle(getExchangeRate(displayCurrency.value))
+  conversionRates.value = exchangeResult.ok ? exchangeResult.data.conversionRates : undefined
 
-    conversionRates.value = exchangeRateResult.data.conversionRates
-  } catch {
-    errorMessage.value = '網路連線發生問題，請稍後再試'
-  } finally {
-    isRefreshing.value = false
-  }
+  isRefreshing.value = false
 }
 
 // ---- Lifecycle ----
 
-onMounted(async () => {
-  try {
-    const [realizedPnlResult, exchangeRateResult] = await Promise.all([
-      getRealizedPnl(),
-      getExchangeRate(displayCurrency.value),
-    ])
+const loadInitial = async () => {
+  isInitialLoading.value = true
+  isInitError.value = false
 
-    if (!realizedPnlResult.ok) {
-      errorMessage.value = realizedPnlResult.message
-      return
-    }
+  const pnlResult = await handle(getRealizedPnl())
+  if (!pnlResult.ok) {
+    isInitError.value = true
+    isInitialLoading.value = false
+    return
+  }
+  realizedPnl.value = pnlResult.data
 
-    if (!exchangeRateResult.ok) {
-      errorMessage.value = exchangeRateResult.message
-      return
-    }
+  const exchangeResult = await handle(getExchangeRate(displayCurrency.value))
+  if (exchangeResult.ok) conversionRates.value = exchangeResult.data.conversionRates
 
-    realizedPnl.value = realizedPnlResult.data
-    conversionRates.value = exchangeRateResult.data.conversionRates
-
-    const stockInfosResult = await getLatestStockInfos(
-      realizedPnlResult.data.map((r) => ({
+  const stockInfoResult = await handle(
+    getLatestStockInfos(
+      pnlResult.data.map((r) => ({
         stockMarket: r.stockMarket,
         code: r.stockCode,
       })),
-    )
+    ),
+  )
+  if (stockInfoResult.ok) stockInfos.value = stockInfoResult.data.succeeded
 
-    if (!stockInfosResult.ok) {
-      errorMessage.value = stockInfosResult.message
-      return
-    }
+  isInitialLoading.value = false
+}
 
-    stockInfos.value = stockInfosResult.data.succeeded
-  } catch {
-    errorMessage.value = '網路連線發生問題，請稍後再試'
-  } finally {
-    isInitialLoading.value = false
-  }
-})
+onMounted(loadInitial)
 </script>
 
 <template>
@@ -390,10 +373,14 @@ onMounted(async () => {
   </template>
 
   <template v-else>
-    <!-- 錯誤提示 -->
-    <n-alert v-if="errorMessage" type="error" :bordered="false" class="mb-4">
-      {{ errorMessage }}
-    </n-alert>
+    <!-- 載入失敗 -->
+    <div v-if="isInitError" class="flex justify-center py-20">
+      <n-empty size="large" description="無法載入損益資料">
+        <template #extra>
+          <n-button type="primary" @click="loadInitial">重試</n-button>
+        </template>
+      </n-empty>
+    </div>
 
     <!-- 表格資料 -->
     <n-card

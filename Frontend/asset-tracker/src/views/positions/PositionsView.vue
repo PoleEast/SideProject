@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { breakpointsTailwind, useBreakpoints } from '@vueuse/core'
 
 import {
-  NAlert,
   NButton,
   NCard,
   NDataTable,
@@ -47,6 +46,7 @@ import { useMarketChart } from './useMarketChart'
 import { usePositionColumns } from './usePositionColumns'
 import { useStockChart } from './useStockChart'
 import { useNetworkLoadingBar } from '@/composables/useNetworkLoadingBar'
+import { useApiToast } from '@/composables/useApiToast'
 
 use([
   CanvasRenderer,
@@ -59,19 +59,21 @@ use([
 ])
 
 const router = useRouter()
+const { handle } = useApiToast()
 useNetworkLoadingBar()
+
+const breakpoints = useBreakpoints(breakpointsTailwind)
+const isMobile = breakpoints.smaller('md')
+
 // ---- State ----
 
-const errorMessage = ref('')
 const positions = ref<PositionResponse[]>([])
 const conversionRates = ref<ExchangeRateResponse>()
 const stockPrices = ref<StockPriceResponse[]>([])
 
 const isInitialLoading = ref<boolean>(true)
 const isRefreshing = ref<boolean>(false)
-
-const breakpoints = useBreakpoints(breakpointsTailwind)
-const isMobile = breakpoints.smaller('md')
+const isInitError = ref<boolean>(false)
 
 // 使用者選擇的顯示幣別
 const displayCurrency = ref<CurrencyType>(currencies[0])
@@ -162,67 +164,47 @@ const formatPnl = (value: number | undefined) => {
 // ---- Event Handlers ----
 
 const handleCurrencyChange = async () => {
-  try {
-    isRefreshing.value = true
-    const exchangeRateResult = await getExchangeRate(displayCurrency.value)
+  isRefreshing.value = true
+  const rateResult = await handle(getExchangeRate(displayCurrency.value))
+  conversionRates.value = rateResult.ok ? rateResult.data : undefined
+  recalcMarketTotal()
 
-    if (!exchangeRateResult.ok) {
-      errorMessage.value = exchangeRateResult.message
-      return
-    }
-
-    conversionRates.value = exchangeRateResult.data
-    recalcMarketTotal()
-  } catch {
-    errorMessage.value = '網路連線發生問題，請稍後再試'
-  } finally {
-    isRefreshing.value = false
-  }
+  isRefreshing.value = false
 }
 
 // ---- Lifecycle ----
 
-onMounted(async () => {
-  try {
-    const [positionResult, exchangeRateResult] = await Promise.all([
-      getPosition(),
-      getExchangeRate(displayCurrency.value),
-    ])
+const loadInitial = async () => {
+  isInitialLoading.value = true
+  isInitError.value = false
 
-    if (!positionResult.ok) {
-      errorMessage.value = positionResult.message
-      return
-    }
+  const positionResult = await handle(getPosition())
+  if (!positionResult.ok) {
+    isInitError.value = true
+    isInitialLoading.value = false
+    return
+  }
+  positions.value = positionResult.data
 
-    if (!exchangeRateResult.ok) {
-      errorMessage.value = exchangeRateResult.message
-      return
-    }
+  const rateResult = await handle(getExchangeRate(displayCurrency.value))
+  if (rateResult.ok) conversionRates.value = rateResult.data
 
-    positions.value = positionResult.data
-    conversionRates.value = exchangeRateResult.data
-
-    const LatestStockPricesResult = await getLatestStockPrices(
+  const priceResult = await handle(
+    getLatestStockPrices(
       positions.value.map((p) => ({
         stockMarket: p.stockMarket,
         code: p.stockCode,
       })),
       new Date(),
-    )
+    ),
+  )
+  if (priceResult.ok) stockPrices.value = priceResult.data.succeeded
 
-    if (!LatestStockPricesResult.ok) {
-      errorMessage.value = LatestStockPricesResult.message
-      return
-    }
+  recalcMarketTotal()
+  isInitialLoading.value = false
+}
 
-    stockPrices.value = LatestStockPricesResult.data.succeeded
-  } catch {
-    errorMessage.value = '網路連線發生問題，請稍後再試'
-  } finally {
-    recalcMarketTotal()
-    isInitialLoading.value = false
-  }
-})
+onMounted(loadInitial)
 </script>
 
 <template>
@@ -264,10 +246,14 @@ onMounted(async () => {
   </template>
 
   <template v-else>
-    <!-- 錯誤提示 -->
-    <n-alert v-if="errorMessage" type="error" :bordered="false" class="mb-4">
-      {{ errorMessage }}
-    </n-alert>
+    <!-- 載入失敗 -->
+    <div v-if="isInitError" class="flex justify-center py-20">
+      <n-empty size="large" description="無法載入持倉資料">
+        <template #extra>
+          <n-button type="primary" @click="loadInitial">重試</n-button>
+        </template>
+      </n-empty>
+    </div>
 
     <template v-else-if="positions.length > 0">
       <div class="mb-4 grid gap-4" :class="isMobile ? 'grid-cols-1' : 'h-100 grid-cols-2'">

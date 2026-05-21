@@ -2,6 +2,7 @@
 import {
   NConfigProvider,
   NMessageProvider,
+  NNotificationProvider,
   NModalProvider,
   NDialogProvider,
   NLoadingBarProvider,
@@ -19,16 +20,18 @@ const showAuthModal = computed(() => !authStore.isLoggedIn)
 <template>
   <n-config-provider>
     <n-loading-bar-provider>
-      <n-message-provider>
-        <n-modal-provider>
-          <n-dialog-provider>
-            <auth-modal :show="showAuthModal" />
-            <app-layout>
-              <router-view></router-view>
-            </app-layout>
-          </n-dialog-provider>
-        </n-modal-provider>
-      </n-message-provider>
+      <n-notification-provider>
+        <n-message-provider>
+          <n-modal-provider>
+            <n-dialog-provider>
+              <auth-modal :show="showAuthModal" />
+              <app-layout>
+                <router-view></router-view>
+              </app-layout>
+            </n-dialog-provider>
+          </n-modal-provider>
+        </n-message-provider>
+      </n-notification-provider>
     </n-loading-bar-provider>
   </n-config-provider>
 </template>

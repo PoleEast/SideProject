@@ -26,6 +26,7 @@ import type { TransactionRequest, TransactionResponse } from '@/types/transactio
 import { create, updateTransaction } from '@/api/transaction'
 import { marketColors, transactionTypeColors } from '@/utils/colors'
 import { marketCurrencyMap } from '@/constants/common'
+import { useApiToast } from '@/composables/useApiToast'
 
 // ---- Setup ----
 
@@ -38,6 +39,7 @@ const emit = defineEmits<{ refresh: [] }>()
 const message = useMessage()
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoints.smaller('md')
+const { handle } = useApiToast()
 
 // ---- State ----
 
@@ -99,25 +101,19 @@ const handleSubmit = async () => {
   } catch {
     return
   }
-
   loading.value = true
-
   try {
     const payload = {
       ...formData,
       date: new Date(formData.date as number).toISOString(),
     } as TransactionRequest
-    const response = isEdit.value
-      ? await updateTransaction(props.transaction!.id, payload)
-      : await create(payload)
-
-    if (response.ok) {
-      message.success(`${isEdit.value ? '編輯交易資料成功' : '新增交易資料成功'}`)
-      show.value = false
-      emit('refresh')
-    }
-  } catch {
-    message.error('網路連線發生問題，請稍後再試')
+    const result = await handle(
+      isEdit.value ? updateTransaction(props.transaction!.id, payload) : create(payload),
+    )
+    if (!result.ok) return
+    message.success(isEdit.value ? '已更新交易' : '已新增交易')
+    show.value = false
+    emit('refresh')
   } finally {
     loading.value = false
   }

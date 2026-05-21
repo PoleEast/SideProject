@@ -3,7 +3,6 @@ import { computed, h, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import {
-  NAlert,
   NButton,
   NCard,
   NCollapseTransition,
@@ -42,6 +41,7 @@ import type { TransactionResponse } from '@/types/transaction'
 import { deleteTransaction, getTransactions } from '@/api/transaction'
 import { transactionTypeColors } from '@/utils/colors'
 import { useNetworkLoadingBar } from '@/composables/useNetworkLoadingBar'
+import { useApiToast } from '@/composables/useApiToast'
 
 // ---- Setup ----
 
@@ -50,14 +50,15 @@ const route = useRoute()
 useNetworkLoadingBar()
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isMobile = breakpoints.smaller('md')
+const { handle } = useApiToast()
 
 // ---- State ----
 
 const transactions = ref<TransactionResponse[]>([])
-const errorMessage = ref<string | null>(null)
 const expandedId = ref<number>()
 const isInitialLoading = ref<boolean>(true)
 const isRefreshing = ref<boolean>(false)
+const isInitError = ref<boolean>(false)
 const deletingId = ref<number>()
 
 // ---- 篩選 ----
@@ -195,35 +196,23 @@ const toggleExpand = (id: number) => {
 
 const loadTransactions = async () => {
   isRefreshing.value = true
-  try {
-    const result = await getTransactions()
-
-    if (!result.ok) {
-      errorMessage.value = result.message
-      return
-    }
-
+  isInitError.value = false
+  const result = await handle(getTransactions())
+  if (!result.ok) {
+    isInitError.value = true
+  } else {
     transactions.value = result.data
-  } catch {
-    errorMessage.value = '網路連線發生問題，請稍後再試'
-  } finally {
-    isRefreshing.value = false
   }
+  isRefreshing.value = false
 }
 
 const handleDelete = async (id: number) => {
   deletingId.value = id
   try {
-    const result = await deleteTransaction(id)
-
-    if (!result.ok) {
-      message.error(result.message)
-      return
-    }
-
+    const result = await handle(deleteTransaction(id))
+    if (!result.ok) return
+    message.success('已刪除交易')
     await loadTransactions()
-  } catch {
-    message.error('網路連線發生問題刪除失敗，請稍後再試')
   } finally {
     deletingId.value = undefined
   }
@@ -309,10 +298,14 @@ onMounted(async () => {
   </template>
 
   <template v-else>
-    <!-- 錯誤提示 -->
-    <n-alert v-if="errorMessage" type="error" :bordered="false" class="mb-4">{{
-      errorMessage
-    }}</n-alert>
+    <!-- 載入失敗 -->
+    <div v-if="isInitError" class="flex justify-center py-20">
+      <n-empty description="無法載入交易記錄" size="large">
+        <template #extra>
+          <n-button type="primary" @click="loadTransactions">重試</n-button>
+        </template>
+      </n-empty>
+    </div>
 
     <template v-else-if="filterTransactions.length > 0">
       <!-- 交易紀錄表格 -->

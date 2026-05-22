@@ -65,7 +65,6 @@ namespace AssetTracker.Services
                 return Result<TransactionResponse>.Failure(ResultCode.NotFound, "找不到此筆交易紀錄");
             }
 
-
             if (request.StockCode != null) transaction.StockCode = request.StockCode;
             if (request.Market != null) transaction.StockMarket = request.Market.Value;
             if (request.Date.HasValue) transaction.Date = request.Date.Value;
@@ -83,6 +82,8 @@ namespace AssetTracker.Services
         public async Task<Result> DeleteTransactionAsync(int id, int userId)
         {
             var transaction = await dbContext.Transactions.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+
+            //todo: 增加讓賣出不會大於買入的阻擋功能
 
             if (transaction == null)
             {

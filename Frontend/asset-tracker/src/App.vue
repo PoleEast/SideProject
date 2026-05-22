@@ -26,7 +26,7 @@ const showAuthModal = computed(() => !authStore.isLoggedIn)
             <n-dialog-provider>
               <auth-modal :show="showAuthModal" />
               <app-layout>
-                <router-view></router-view>
+                <router-view v-if="authStore.isLoggedIn"></router-view>
               </app-layout>
             </n-dialog-provider>
           </n-modal-provider>

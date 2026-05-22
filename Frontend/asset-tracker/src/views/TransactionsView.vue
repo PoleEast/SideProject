@@ -264,7 +264,7 @@ onMounted(async () => {
   </n-flex>
 
   <!-- 篩選列（手機版） -->
-  <div v-else class="flex flex-col gap-2">
+  <div v-else class="mb-1 flex flex-col gap-2">
     <n-flex :wrap="false" class="gap-2">
       <n-select
         v-model:value="filterMarket"
@@ -293,7 +293,9 @@ onMounted(async () => {
 
   <!-- 初次載入：顯示 Skeleton -->
   <template v-if="isInitialLoading">
-    <TableSkeleton v-if="!isMobile" :rows="8" />
+    <n-card v-if="!isMobile" title="交易明細" size="small" bordered>
+      <TableSkeleton :rows="8" />
+    </n-card>
     <CardListSkeleton v-else :count="6" />
   </template>
 
@@ -308,15 +310,17 @@ onMounted(async () => {
     </div>
 
     <template v-else-if="filterTransactions.length > 0">
-      <!-- 交易紀錄表格 -->
-      <n-data-table
-        v-if="!isMobile"
-        :columns="columns"
-        :data="filterTransactions"
-        :loading="isRefreshing"
-        :bordered="false"
-        striped
-      />
+      <n-card v-if="!isMobile" title="交易明細" size="small" bordered>
+        <!-- 交易紀錄表格 -->
+        <n-data-table
+          :columns="columns"
+          :data="filterTransactions"
+          :loading="isRefreshing"
+          :bordered="false"
+          :scroll-x="700"
+          striped
+        />
+      </n-card>
 
       <!-- 手機版 -->
       <n-spin v-else :show="isRefreshing">

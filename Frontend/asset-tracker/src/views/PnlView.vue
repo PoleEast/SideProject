@@ -330,7 +330,7 @@ onMounted(loadInitial)
   </n-card>
 
   <!-- 篩選列 -->
-  <n-flex v-if="!isMobile" class="mb-4" :wrap="false">
+  <n-flex v-if="!isMobile" class="mb-4 gap-2" :wrap="false">
     <n-select
       v-model:value="filterMarket"
       :options="marketOptions"
@@ -397,6 +397,7 @@ onMounted(loadInitial)
         :loading="isRefreshing"
         :scroll-x="700"
         :bordered="false"
+        striped
       />
     </n-card>
 

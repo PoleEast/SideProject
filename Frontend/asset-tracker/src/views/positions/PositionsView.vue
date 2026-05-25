@@ -77,37 +77,40 @@ const isInitError = ref<boolean>(false)
 
 // 使用者選擇的顯示幣別
 const displayCurrency = ref<CurrencyType>(currencies[0])
-const currencyOptions = currencies.map((c) => ({ label: c, value: c }))
+const currencyOptions = currencies.map((currency) => ({ label: currency, value: currency }))
 
 const enrichedPositions = computed<EnrichedPosition[]>(() =>
-  positions.value.map<EnrichedPosition>((p) => {
+  positions.value.map<EnrichedPosition>((position) => {
     const stockPrice = stockPrices.value.find(
-      (s) => s.stockMarket === p.stockMarket && s.code === p.stockCode,
+      (price) => price.stockMarket === position.stockMarket && price.code === position.stockCode,
     )
 
     return {
-      ...p,
+      ...position,
       stockName: stockPrice?.name,
-      totalCost: p.averagePrice * p.quantity,
+      totalCost: position.averagePrice * position.quantity,
       currentPrice: stockPrice?.closingPrice,
       unrealizedPnl: stockPrice
-        ? (stockPrice.closingPrice - p.averagePrice) * p.quantity
+        ? (stockPrice.closingPrice - position.averagePrice) * position.quantity
         : undefined,
-      unrealizedPnlRate: stockPrice ? stockPrice.closingPrice / p.averagePrice - 1 : undefined,
+      unrealizedPnlRate: stockPrice
+        ? stockPrice.closingPrice / position.averagePrice - 1
+        : undefined,
     }
   }),
 )
 
 const displayedPositions = computed<DisplayedPosition[]>(() =>
-  enrichedPositions.value.map<DisplayedPosition>((p) => {
-    const conversionRate = conversionRates.value?.conversionRates[marketCurrencyMap[p.stockMarket]]
+  enrichedPositions.value.map<DisplayedPosition>((position) => {
+    const conversionRate =
+      conversionRates.value?.conversionRates[marketCurrencyMap[position.stockMarket]]
 
     return {
-      ...p,
-      convertedTotalCost: conversionRate ? p.totalCost / conversionRate : undefined,
+      ...position,
+      convertedTotalCost: conversionRate ? position.totalCost / conversionRate : undefined,
       convertedUnrealizedPnl:
-        p.unrealizedPnl !== undefined && conversionRate !== undefined
-          ? p.unrealizedPnl / conversionRate
+        position.unrealizedPnl !== undefined && conversionRate !== undefined
+          ? position.unrealizedPnl / conversionRate
           : undefined,
     }
   }),
@@ -115,11 +118,14 @@ const displayedPositions = computed<DisplayedPosition[]>(() =>
 
 const marketDistribution = computed<ProportionItem[]>(() => {
   const totalMap = new Map<MarketType, number>()
-  displayedPositions.value.forEach((p) => {
-    totalMap.set(p.stockMarket, (totalMap.get(p.stockMarket) ?? 0) + (p.convertedTotalCost ?? 0))
+  displayedPositions.value.forEach((position) => {
+    totalMap.set(
+      position.stockMarket,
+      (totalMap.get(position.stockMarket) ?? 0) + (position.convertedTotalCost ?? 0),
+    )
   })
 
-  const total = Array.from(totalMap.values()).reduce((sum, v) => sum + v, 0)
+  const total = Array.from(totalMap.values()).reduce((sum, value) => sum + value, 0)
 
   return Array.from(totalMap.entries())
     .map(([market, value]) => ({
@@ -132,13 +138,16 @@ const marketDistribution = computed<ProportionItem[]>(() => {
 })
 
 const stockDistribution = computed<ProportionItem[]>(() => {
-  const total = displayedPositions.value.reduce((sum, v) => sum + (v.convertedTotalCost ?? 0), 0)
+  const total = displayedPositions.value.reduce(
+    (sum, position) => sum + (position.convertedTotalCost ?? 0),
+    0,
+  )
 
   return displayedPositions.value
-    .map((d, index) => ({
-      key: d.stockCode,
-      label: d.stockCode,
-      percent: total > 0 ? (d.convertedTotalCost ?? 0) / total : 0,
+    .map((position, index) => ({
+      key: position.stockCode,
+      label: position.stockCode,
+      percent: total > 0 ? (position.convertedTotalCost ?? 0) / total : 0,
       color: getChartColor(index) ?? '',
     }))
     .sort((a, b) => b.percent - a.percent)
@@ -191,9 +200,9 @@ const loadInitial = async () => {
 
   const priceResult = await handle(
     getLatestStockPrices(
-      positions.value.map((p) => ({
-        stockMarket: p.stockMarket,
-        code: p.stockCode,
+      positions.value.map((position) => ({
+        stockMarket: position.stockMarket,
+        code: position.stockCode,
       })),
       new Date(),
     ),

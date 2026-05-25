@@ -60,17 +60,17 @@ const isInitError = ref<boolean>(false)
 const displayCurrency = ref<CurrencyType>('TWD')
 
 const enrichedRealizedPnl = computed<EnrichedRealizedPnl[]>(() =>
-  realizedPnl.value.map((r) => {
-    const pnl = (r.sellPrice - r.buyPrice) * r.sellQuantity
-    const rate = conversionRates.value?.[marketCurrencyMap[r.stockMarket]]
-    const infos = stockInfos.value?.find(
-      (s) => s.code === r.stockCode && s.stockMarket === r.stockMarket,
+  realizedPnl.value.map((record) => {
+    const pnl = (record.sellPrice - record.buyPrice) * record.sellQuantity
+    const rate = conversionRates.value?.[marketCurrencyMap[record.stockMarket]]
+    const stockInfo = stockInfos.value?.find(
+      (info) => info.code === record.stockCode && info.stockMarket === record.stockMarket,
     )
     return {
-      ...r,
-      stockName: infos?.name,
+      ...record,
+      stockName: stockInfo?.name,
       pnl,
-      pnlRate: pnl / (r.buyPrice * r.sellQuantity),
+      pnlRate: pnl / (record.buyPrice * record.sellQuantity),
       convertedPnl: rate ? pnl / rate : undefined,
     }
   }),
@@ -101,7 +101,7 @@ const marketOptions: SelectOption[] = [
   { label: '日股 JP', value: 'JP' },
 ]
 
-const currencyOptions = currencies.map((c) => ({ label: c, value: c }))
+const currencyOptions = currencies.map((currency) => ({ label: currency, value: currency }))
 
 const filteredRecords = computed(() => {
   const marketFilter = (record: EnrichedRealizedPnl) => {
@@ -120,7 +120,7 @@ const filteredRecords = computed(() => {
 // ---- 統計 ----
 
 const totalPnl = computed<number | undefined>(() => {
-  if (filteredRecords.value.some((r) => r.convertedPnl === undefined)) return
+  if (filteredRecords.value.some((record) => record.convertedPnl === undefined)) return
 
   return filteredRecords.value.reduce((sum, record) => sum + record.convertedPnl!, 0)
 })
@@ -222,9 +222,9 @@ const loadInitial = async () => {
 
   const stockInfoResult = await handle(
     getLatestStockInfos(
-      pnlResult.data.map((r) => ({
-        stockMarket: r.stockMarket,
-        code: r.stockCode,
+      pnlResult.data.map((record) => ({
+        stockMarket: record.stockMarket,
+        code: record.stockCode,
       })),
     ),
   )

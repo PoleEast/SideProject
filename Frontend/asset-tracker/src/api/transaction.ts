@@ -40,27 +40,6 @@ export const getTransactions = async (): Promise<Result<TransactionResponse[]>> 
   return { ok: true, data: await response.json() }
 }
 
-export const getTransaction = async (id: number): Promise<Result<TransactionResponse>> => {
-  const response = await authFetch(`${API_URL}/${id}`, {
-    method: 'GET',
-  })
-
-  if (!response.ok) {
-    let message
-    switch (response.status) {
-      case 404:
-        message = '這筆交易已不存在'
-        break
-      default:
-        message = '伺服器發生無法預期狀況'
-    }
-
-    return { ok: false, message }
-  }
-
-  return { ok: true, data: await response.json() }
-}
-
 export const updateTransaction = async (
   id: number,
   data: TransactionRequest,

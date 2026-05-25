@@ -1,7 +1,6 @@
 import { h } from 'vue'
 import { NIcon, NText, NTooltip } from 'naive-ui'
 import { HelpOutlineRound } from '@vicons/material'
-import { getPnlTextColor } from './colors'
 
 export const renderCurrencyHintTitle = (title: string) =>
   h('span', { style: 'display: flex; align-items: center; gap: 4px' }, [
@@ -28,27 +27,6 @@ export const renderCurrencyHintTitle = (title: string) =>
       },
     ),
   ])
-
-export const renderPnlValue = (value?: number) => {
-  const text = value?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? '-'
-  const color = getPnlTextColor(value)
-
-  return h(NText, { strong: true, style: { color } }, { default: () => text })
-}
-
-export const renderPnlRate = (rate?: number) => {
-  const text =
-    rate !== undefined
-      ? rate.toLocaleString(undefined, {
-          style: 'percent',
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
-      : '-'
-  const color = getPnlTextColor(rate)
-
-  return h(NText, { strong: true, style: { color } }, { default: () => text })
-}
 
 export const renderTwoLine = (
   primary: string,

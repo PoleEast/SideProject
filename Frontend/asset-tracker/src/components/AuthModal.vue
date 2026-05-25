@@ -2,19 +2,20 @@
 import {
   NAlert,
   NButton,
+  NCard,
   NDivider,
   NForm,
   NFormItem,
+  NH2,
   NInput,
   NModal,
-  NCard,
-  NText,
-  NH2,
   NP,
+  NText,
+  useMessage,
+  type FormInst,
+  type FormRules,
 } from 'naive-ui'
 import { reactive, ref } from 'vue'
-import { useMessage } from 'naive-ui'
-import type { FormInst, FormRules } from 'naive-ui'
 import { login, register } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 

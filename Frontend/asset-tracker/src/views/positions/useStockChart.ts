@@ -38,7 +38,7 @@ export const useStockChart = (positions: Ref<DisplayedPosition[]>) => {
     legend: {
       type: 'scroll',
       top: 'center',
-      left: '80%',
+      left: '75%',
       orient: 'vertical',
       itemWidth: 14,
       itemHeight: 14,
@@ -66,7 +66,7 @@ export const useStockChart = (positions: Ref<DisplayedPosition[]>) => {
     series: [
       {
         type: 'pie',
-        center: ['50%', '50%'],
+        center: ['45%', '50%'],
         radius: ['30%', '70%'],
         itemStyle: {
           borderRadius: 10,

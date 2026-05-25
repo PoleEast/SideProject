@@ -13,6 +13,10 @@ export const getLatestStockPrices = async (
   datas: StockIdentifier[],
   asOf: Date,
 ): Promise<Result<BatchStockPriceResponse>> => {
+  if (datas.length === 0) {
+    return { ok: true, data: { succeeded: [], failed: [] } }
+  }
+
   const params = new URLSearchParams({ asOf: asOf.toISOString().split('T')[0]! })
   const response = await authFetch(`${API_URL}/latest-prices?${params}`, {
     method: 'POST',
@@ -39,6 +43,10 @@ export const getLatestStockPrices = async (
 export const getLatestStockInfos = async (
   datas: StockIdentifier[],
 ): Promise<Result<BatchStockInfoResponse>> => {
+  if (datas.length === 0) {
+    return { ok: true, data: { succeeded: [], failed: [] } }
+  }
+
   const response = await authFetch(`${API_URL}/infos`, {
     method: 'POST',
     body: JSON.stringify(datas),

@@ -112,6 +112,12 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
+if (app.Environment.IsProduction())
+{
+    var db = app.Services.CreateScope().ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate();
+}
+
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.UseAuthentication();

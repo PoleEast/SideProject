@@ -68,7 +68,9 @@ builder.Services.AddAuthentication(option =>
     };
 });
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions => sqlOptions.EnableRetryOnFailure()));
 
 builder.Services.AddCors(options =>
 {
@@ -110,12 +112,6 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.MapScalarApiReference();
-}
-
-if (app.Environment.IsProduction())
-{
-    var db = app.Services.CreateScope().ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate();
 }
 
 app.UseHttpsRedirection();

@@ -198,10 +198,15 @@ const clearReenteredPassword = () => {
 
       <!-- 切換模式 -->
       <div class="text-center">
-        <n-text type="primary">
+        <n-text>
           {{ isLogin ? '竟然還沒有帳號？' : '已經有帳號了？' }}
         </n-text>
-        <n-button text type="primary" class="ml-2" @click="switchMode">
+        <n-button
+          text
+          type="primary"
+          class="ml-2 pl-1! transition-transform! hover:scale-110!"
+          @click="switchMode"
+        >
           {{ isLogin ? '立即加入！' : '立即登入！' }}
         </n-button>
       </div>

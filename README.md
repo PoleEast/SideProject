@@ -6,7 +6,11 @@
 
 ## Demo
 
-> 線上版本待部署。以下是本機執行的畫面。
+**線上版本：[https://yellow-bay-0f031bf00.7.azurestaticapps.net/](https://yellow-bay-0f031bf00.7.azurestaticapps.net/)**
+
+> ⚠️ 後端與資料庫採無伺服器（serverless）部署，閒置後會休眠，首次開啟請稍候冷啟動。
+
+以下是執行畫面。
 
 ### 桌機版
 

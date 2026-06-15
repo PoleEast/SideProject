@@ -1,13 +1,11 @@
 using AssetTracker;
 using AssetTracker.ApiClients;
 using AssetTracker.Services;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Project.Core.Auth;
 using Project.Data;
 using Scalar.AspNetCore;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -43,30 +41,13 @@ builder.Services.AddKeyedSingleton("ApiResponse", new JsonSerializerOptions
     PropertyNameCaseInsensitive = true,
 });
 
-builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<TransactionService>();
 builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<ExchangeRateService>();
 builder.Services.AddScoped<PositionService>();
 
-builder.Services.AddAuthentication(option =>
-{
-    option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(option =>
-{
-    option.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)),
-        ValidateIssuer = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidateAudience = true,
-        ValidAudiences = [builder.Configuration["Jwt:Audience"]],
-        ValidateLifetime = true,
-    };
-});
+builder.Services.AddSharedAuth(builder.Configuration);
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),

@@ -1,12 +1,12 @@
 ﻿using Mapster;
-using Microsoft.EntityFrameworkCore;
 using Project.Data;
 using Project.Data.Model;
 using Project.Shared.DTOs;
 using Project.Shared.DTOs.Auth;
 using Project.Shared.Types;
+using Microsoft.EntityFrameworkCore;
 
-namespace AssetTracker.Services
+namespace Project.Core.Auth
 {
     public class AuthService(ApplicationDbContext dbContext)
     {

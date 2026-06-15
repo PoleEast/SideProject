@@ -1,5 +1,5 @@
-﻿using AssetTracker.Services;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using Project.Core.Auth;
 using Project.Shared.DTOs.Auth;
 using Project.Shared.Types;
 

@@ -5,10 +5,11 @@ using Project.Shared.DTOs;
 using Project.Shared.DTOs.Auth;
 using Project.Shared.Types;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Project.Core.Auth
 {
-    public class AuthService(ApplicationDbContext dbContext)
+    public class AuthService(ApplicationDbContext dbContext, ILogger<AuthService> logger)
     {
         public async Task<Result<User>> RegisterAsync(RegisterRequest request)
         {
@@ -23,8 +24,16 @@ namespace Project.Core.Auth
             var user = request.Adapt<User>();
             user.PasswordHash = passwordHash;
 
-            dbContext.Add(user);
-            await dbContext.SaveChangesAsync();
+            try
+            {
+                dbContext.Add(user);
+                await dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                logger.LogError(ex, "註冊寫入失敗。account: {Account}", request.Account);
+                return Result<User>.Failure(ResultCode.InternalServerError, "資料儲存失敗");
+            }
 
             return Result<User>.Success(user);
         }
@@ -45,8 +54,16 @@ namespace Project.Core.Auth
 
             user.LastLoginAt = DateTime.UtcNow;
 
-            dbContext.Update(user);
-            await dbContext.SaveChangesAsync();
+            try
+            {
+                dbContext.Update(user);
+                await dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                // 更新最後登入時間屬非關鍵操作，失敗只記錄、不影響登入結果
+                logger.LogError(ex, "更新最後登入時間失敗。userId: {UserId}", user.Id);
+            }
 
             return Result<User>.Success(user);
         }

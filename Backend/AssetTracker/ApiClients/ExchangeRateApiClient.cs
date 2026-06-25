@@ -7,13 +7,22 @@ using System.Text.Json;
 
 namespace AssetTracker.ApiClients
 {
-    public class ExchangeRateApiClient(HttpClient httpClient, [FromKeyedServices("ApiResponse")] JsonSerializerOptions options) : IExchangeRateApiClient
+    public class ExchangeRateApiClient(HttpClient httpClient, [FromKeyedServices("ApiResponse")] JsonSerializerOptions options, ILogger<ExchangeRateApiClient> logger) : IExchangeRateApiClient
     {
         public async Task<Result<ExchangeRateResponse>> FetchStandardRequestsAsync(CurrencyType baseCode)
         {
             var url = $"latest/{baseCode}";
 
-            var response = await httpClient.GetFromJsonAsync<StandardResponse>(url, options);
+            StandardResponse? response;
+            try
+            {
+                response = await httpClient.GetFromJsonAsync<StandardResponse>(url, options);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                logger.LogError(ex, "呼叫匯率 API 失敗。baseCode: {BaseCode}", baseCode);
+                return Result<ExchangeRateResponse>.Failure(ResultCode.ExternalApiError, "服務暫時無法提供");
+            }
 
             if (response == null) return Result<ExchangeRateResponse>.Failure(ResultCode.ExternalApiError, "服務暫時無法提供");
 

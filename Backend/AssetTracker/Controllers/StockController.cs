@@ -30,7 +30,7 @@ namespace AssetTracker.Controllers
                 ResultCode.Success => Ok(result.Value),
                 ResultCode.BusinessRuleViolation => BadRequest(result.Message),
                 ResultCode.NotFound => NotFound(result.Message),
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
 
@@ -47,7 +47,7 @@ namespace AssetTracker.Controllers
             {
                 ResultCode.Success => Ok(result.Value),
                 ResultCode.BusinessRuleViolation => BadRequest(result.Message),
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
 
@@ -66,7 +66,7 @@ namespace AssetTracker.Controllers
                 ResultCode.Success => Ok(result.Value),
                 ResultCode.BusinessRuleViolation => BadRequest(result.Message),
                 // 批次查詢單檔失敗會進 Failed 清單，不會整批回 NotFound
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
     }

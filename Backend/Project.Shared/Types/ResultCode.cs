@@ -24,6 +24,9 @@
         Forbidden,
 
         // 第三方 API 錯誤
-        ExternalApiError
+        ExternalApiError,
+
+        // 伺服器內部錯誤
+        InternalServerError
     }
 }

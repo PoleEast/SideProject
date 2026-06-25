@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using AssetTracker.Common;
+using Microsoft.AspNetCore.Mvc;
 using Project.Core.Auth;
 using Project.Shared.DTOs.Auth;
 using Project.Shared.Types;
@@ -23,7 +24,7 @@ namespace AssetTracker.Controllers
             return result.Code switch
             {
                 ResultCode.Conflict => Conflict(result.Message),
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
 
@@ -42,7 +43,7 @@ namespace AssetTracker.Controllers
             {
                 ResultCode.Conflict => Conflict(result.Message),
                 ResultCode.Unauthorized => Unauthorized(result.Message),
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
     }

@@ -12,7 +12,7 @@ using static AssetTracker.Common.StockConfig;
 
 namespace AssetTracker.ApiClients
 {
-    public class FinMindApiClient(HttpClient httpClient, [FromKeyedServices("ApiResponse")] JsonSerializerOptions options) : IStockApiClients
+    public class FinMindApiClient(HttpClient httpClient, [FromKeyedServices("ApiResponse")] JsonSerializerOptions options, ILogger<FinMindApiClient> logger) : IStockApiClients
     {
         private record MarketDatasetMapping(string StockPrice, string StockData);
 
@@ -26,7 +26,17 @@ namespace AssetTracker.ApiClients
 
         public async Task<Result<StockInfo>> GetStockInfoAsync(StockMarketType market, string code)
         {
-            var stockInfo = await FetchStockInfoAsync(market, code);
+            StockInfo? stockInfo;
+            try
+            {
+                stockInfo = await FetchStockInfoAsync(market, code);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                logger.LogError(ex, "呼叫 FinMind 股票資訊 API 失敗。market: {Market}, code: {Code}", market, code);
+                return Result<StockInfo>.Failure(ResultCode.ExternalApiError, "服務暫時無法提供");
+            }
+
             if (stockInfo == null)
             {
                 return Result<StockInfo>.Failure(ResultCode.BusinessRuleViolation, "不支援此檔股票");
@@ -37,21 +47,31 @@ namespace AssetTracker.ApiClients
 
         public async Task<Result<List<StockPriceHistory>>> GetStockPriceAsync(StockMarketType market, string code, DateTime startDate, DateTime endDate)
         {
-            var stockInfo = await FetchStockInfoAsync(market, code);
-
-            if (stockInfo == null)
+            List<StockPriceHistory>? result = null;
+            StockInfo? stockInfo = null;
+            try
             {
-                return Result<List<StockPriceHistory>>.Failure(ResultCode.BusinessRuleViolation, "不支援此檔股票");
+                stockInfo = await FetchStockInfoAsync(market, code);
+
+                if (stockInfo == null)
+                {
+                    return Result<List<StockPriceHistory>>.Failure(ResultCode.BusinessRuleViolation, "不支援此檔股票");
+                }
+
+                var stockPrice = await FetchStockPriceAsync(market, code, startDate, endDate);
+
+                if (stockPrice.Count < 1)
+                {
+                    return Result<List<StockPriceHistory>>.Failure(ResultCode.BusinessRuleViolation, "查無此日的價格資訊");
+                }
+
+                result = stockPrice.Adapt<List<StockPriceHistory>>();
             }
-
-            var stockPrice = await FetchStockPriceAsync(market, code, startDate, endDate);
-
-            if (stockPrice.Count < 1)
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
             {
-                return Result<List<StockPriceHistory>>.Failure(ResultCode.BusinessRuleViolation, "查無此日的價格資訊");
+                logger.LogError(ex, "呼叫 FinMind 股票資訊 API 失敗。market: {Market}, code: {Code}", market, code);
+                return Result<List<StockPriceHistory>>.Failure(ResultCode.ExternalApiError, "服務暫時無法提供");
             }
-
-            var result = stockPrice.Adapt<List<StockPriceHistory>>();
 
             result.ForEach(x =>
             {
@@ -79,6 +99,7 @@ namespace AssetTracker.ApiClients
             };
 
             var url = QueryHelpers.AddQueryString("data", queryParams);
+            // 例外不在此處攔截，交由 public 方法統一轉成 ExternalApiError
             var response = await httpClient.GetFromJsonAsync<JsonNode>(url);
 
             return market switch

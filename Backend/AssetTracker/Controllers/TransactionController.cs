@@ -1,4 +1,5 @@
-﻿using AssetTracker.Services;
+﻿using AssetTracker.Common;
+using AssetTracker.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Project.Shared.DTOs.Transaction;
@@ -26,7 +27,7 @@ namespace AssetTracker.Controllers
                 ResultCode.Success => Ok(result.Value),
                 ResultCode.Conflict => Conflict(result.Message),
                 ResultCode.Unauthorized => Unauthorized(result.Message),
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
 
@@ -43,7 +44,7 @@ namespace AssetTracker.Controllers
             return result.Code switch
             {
                 ResultCode.Success => Ok(result.Value),
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
 
@@ -61,7 +62,7 @@ namespace AssetTracker.Controllers
             {
                 ResultCode.Success => Ok(result.Value),
                 ResultCode.NotFound => NotFound(result.Message),
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
 
@@ -79,7 +80,7 @@ namespace AssetTracker.Controllers
             {
                 ResultCode.Success => Ok(result.Value),
                 ResultCode.NotFound => NotFound(result.Message),
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
 
@@ -98,7 +99,7 @@ namespace AssetTracker.Controllers
             {
                 ResultCode.Success => Ok(),
                 ResultCode.NotFound => NotFound(result.Message),
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
     }

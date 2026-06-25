@@ -1,4 +1,5 @@
-﻿using AssetTracker.Services;
+﻿using AssetTracker.Common;
+using AssetTracker.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Project.Shared.DTOs.Position;
@@ -26,7 +27,7 @@ namespace AssetTracker.Controllers
             {
                 ResultCode.Success => Ok(result.Value),
                 ResultCode.BusinessRuleViolation => BadRequest(result.Message),
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
 
@@ -44,7 +45,7 @@ namespace AssetTracker.Controllers
             {
                 ResultCode.Success => Ok(result.Value),
                 ResultCode.BusinessRuleViolation => BadRequest(result.Message),
-                _ => StatusCode((int)result.Code)
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }
     }

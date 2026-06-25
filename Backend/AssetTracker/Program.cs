@@ -1,6 +1,8 @@
 using AssetTracker;
 using AssetTracker.ApiClients;
+using AssetTracker.Middleware;
 using AssetTracker.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Project.Core.Auth;
@@ -10,9 +12,10 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-//TODO: 了解有哪些方式或工具可以記錄log
-
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 // Add services to the container.
 builder.Services.AddControllers()
@@ -21,6 +24,23 @@ builder.Services.AddControllers()
         // 讓Enum以字串形式接收和回傳
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(namingPolicy: null, allowIntegerValues: false));
     });
+
+// ModelState 驗證失敗時，改回與全域 Handler 一致的 ProblemDetails 格式
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var problemDetails = new ValidationProblemDetails(context.ModelState)
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "請求參數驗證失敗",
+            Instance = context.HttpContext.Request.Path
+        };
+        problemDetails.Extensions["timestamp"] = DateTime.UtcNow;
+
+        return new BadRequestObjectResult(problemDetails);
+    };
+});
 
 builder.Services.AddHttpClient<IStockApiClients, FinMindApiClient>(client =>
 {
@@ -95,6 +115,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
+app.UseExceptionHandler();
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.UseAuthentication();

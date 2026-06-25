@@ -8,7 +8,7 @@ using Project.Shared.Types;
 
 namespace AssetTracker.Services
 {
-    public class TransactionService(ApplicationDbContext dbContext)
+    public class TransactionService(ApplicationDbContext dbContext, ILogger<TransactionService> logger)
     {
         public async Task<Result<TransactionResponse>> CreateTransactionAsync(int userId, CreateTransactionRequest request)
         {
@@ -31,8 +31,16 @@ namespace AssetTracker.Services
                 Remark = request.Remark,
             };
 
-            dbContext.Add(transaction);
-            await dbContext.SaveChangesAsync();
+            try
+            {
+                dbContext.Add(transaction);
+                await dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                logger.LogError(ex, "新增交易失敗。userId: {UserId}", userId);
+                return Result<TransactionResponse>.Failure(ResultCode.InternalServerError, "資料儲存失敗");
+            }
 
             return Result<TransactionResponse>.Success(transaction.Adapt<TransactionResponse>());
         }
@@ -73,8 +81,16 @@ namespace AssetTracker.Services
             if (request.Quantity.HasValue) transaction.Quantity = request.Quantity.Value;
             if (request.Remark != null) transaction.Remark = request.Remark;
 
-            dbContext.Update(transaction);
-            await dbContext.SaveChangesAsync();
+            try
+            {
+                dbContext.Update(transaction);
+                await dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                logger.LogError(ex, "更新交易失敗。id: {Id}, userId: {UserId}", id, userId);
+                return Result<TransactionResponse>.Failure(ResultCode.InternalServerError, "資料儲存失敗");
+            }
 
             return Result<TransactionResponse>.Success(transaction.Adapt<TransactionResponse>());
         }
@@ -90,8 +106,16 @@ namespace AssetTracker.Services
                 return Result.Failure(ResultCode.NotFound, "找不到此筆交易紀錄");
             }
 
-            dbContext.Transactions.Remove(transaction);
-            await dbContext.SaveChangesAsync();
+            try
+            {
+                dbContext.Transactions.Remove(transaction);
+                await dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                logger.LogError(ex, "刪除交易失敗。id: {Id}, userId: {UserId}", id, userId);
+                return Result.Failure(ResultCode.InternalServerError, "資料儲存失敗");
+            }
 
             return Result.Success();
         }

@@ -9,7 +9,7 @@ using Project.Shared.Types;
 
 namespace AssetTracker.Services
 {
-    public class StockService(IStockApiClients stockApiClients, ApplicationDbContext dbContext)
+    public class StockService(IStockApiClients stockApiClients, ApplicationDbContext dbContext, ILogger<StockService> logger)
     {
         public async Task<Result<StockPriceResponse>> GetLatestStockPriceAsync(StockMarketType market, string code, DateTime asOf)
         {
@@ -99,8 +99,15 @@ namespace AssetTracker.Services
             var newPrices = await FilterNewPricesAsync(allPrices);
             if (newPrices.Count > 0)
             {
-                dbContext.StockPriceHistories.AddRange(newPrices);
-                await dbContext.SaveChangesAsync();
+                try
+                {
+                    dbContext.StockPriceHistories.AddRange(newPrices);
+                    await dbContext.SaveChangesAsync();
+                }
+                catch (DbUpdateException ex)
+                {
+                    logger.LogError(ex, "寫入股價快取失敗。筆數: {Count}", newPrices.Count);
+                }
             }
 
             // asOf是非交易日時，取最新一筆當作當天收盤價

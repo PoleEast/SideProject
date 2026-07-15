@@ -11,7 +11,7 @@ namespace Project.Data.Model
         public DateTime Date { get; set; }
         public TransactionType Type { get; set; }
         public int Quantity { get; set; }
-        public decimal Price { get; set; } 
+        public decimal Price { get; set; }
         public string Remark { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }

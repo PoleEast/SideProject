@@ -10,6 +10,13 @@ namespace Project.Data
         public DbSet<Avatar> Avatars { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<StockPriceHistory> StockPriceHistories { get; set; }
+        public DbSet<Friend> Friends { get; set; }
+        public DbSet<Friendship> Friendships { get; set; }
+        public DbSet<Group> Groups { get; set; }
+        public DbSet<GroupMember> GroupMembers { get; set; }
+        public DbSet<Expense> Expenses { get; set; }
+        public DbSet<ExpenseShare> ExpenseShares { get; set; }
+
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
@@ -17,6 +24,7 @@ namespace Project.Data
             configurationBuilder.Properties<StockMarketType>().HaveConversion<string>();
             configurationBuilder.Properties<TransactionType>().HaveConversion<string>();
             configurationBuilder.Properties<AvatarType>().HaveConversion<string>();
+            configurationBuilder.Properties<FriendStatusType>().HaveConversion<string>();
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -62,6 +70,69 @@ namespace Project.Data
                 entity.HasIndex(e => new { e.StockMarket, e.Code, e.Date }).IsUnique();
 
                 entity.HasQueryFilter(e => e.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<Friend>(entity =>
+            {
+                entity.HasOne(e => e.OwnerUser).WithMany(u => u.Friends).HasForeignKey(e => e.OwnerUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.BoundUser).WithMany().HasForeignKey(e => e.BoundUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.OwnerUserId, e.Name }).IsUnique();
+
+                entity.HasQueryFilter(e => e.DeletedAt == null && e.OwnerUser.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<Friendship>(entity =>
+            {
+                entity.HasOne(e => e.Requester).WithMany().HasForeignKey(e => e.RequesterId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Addressee).WithMany().HasForeignKey(e => e.AddresseeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.RequesterId, e.AddresseeId }).IsUnique();
+
+                entity.HasQueryFilter(e => e.DeletedAt == null && e.Requester.DeletedAt == null && e.Addressee.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<Group>(entity =>
+            {
+                entity.HasOne(e => e.OwnerUser).WithMany(u => u.OwnedGroups).HasForeignKey(e => e.OwnerUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasQueryFilter(e => e.DeletedAt == null && e.OwnerUser.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<GroupMember>(entity =>
+            {
+                entity.HasOne(e => e.Group).WithMany(g => g.GroupMembers).HasForeignKey(e => e.GroupId);
+                entity.HasOne(e => e.Friend).WithMany().HasForeignKey(e => e.FriendId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.GroupId, e.FriendId }).IsUnique();
+
+                entity.HasQueryFilter(e => e.DeletedAt == null && e.Group.DeletedAt == null && e.Friend.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<Expense>(entity =>
+            {
+                entity.HasOne(e => e.Group).WithMany(g => g.Expenses).HasForeignKey(e => e.GroupId);
+                entity.HasOne(e => e.Payer).WithMany(gm => gm.Expenses).HasForeignKey(e => e.PayerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasQueryFilter(e => e.DeletedAt == null && e.Group.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<ExpenseShare>(entity =>
+            {
+                entity.Property(e => e.Amount).HasPrecision(18, 2);
+
+                entity.HasOne(e => e.Expense).WithMany(e => e.ExpenseShares).HasForeignKey(e => e.ExpenseId);
+                entity.HasOne(e => e.GroupMember).WithMany(gm => gm.ExpenseShares).HasForeignKey(e => e.GroupMemberId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasQueryFilter(e => e.DeletedAt == null && e.Expense.DeletedAt == null && e.GroupMember.DeletedAt == null);
             });
         }
 

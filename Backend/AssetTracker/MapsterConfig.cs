@@ -29,7 +29,9 @@ namespace AssetTracker
                 .Ignore(d => d.UpdatedAt!)
                 .Ignore(d => d.DeletedAt!)
                 .Ignore(d => d.Transactions)
-                .Ignore(d => d.Avatars);
+                .Ignore(d => d.Avatars)
+                .Ignore(d=>d.Friends)
+                .Ignore(d=>d.OwnedGroups);
 
             TypeAdapterConfig<StockPrice, StockPriceHistory>.NewConfig()
                 .Map(d => d.OpeningPrice, s => s.Open)

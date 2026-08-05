@@ -10,13 +10,12 @@ namespace Project.Data
         public DbSet<Avatar> Avatars { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
         public DbSet<StockPriceHistory> StockPriceHistories { get; set; }
-        public DbSet<Friend> Friends { get; set; }
-        public DbSet<Friendship> Friendships { get; set; }
         public DbSet<Group> Groups { get; set; }
         public DbSet<GroupMember> GroupMembers { get; set; }
         public DbSet<Expense> Expenses { get; set; }
         public DbSet<ExpenseShare> ExpenseShares { get; set; }
-
+        public DbSet<Settlement> Settlements { get; set; }
+        public DbSet<ActivityLog> ActivityLogs { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
@@ -24,7 +23,8 @@ namespace Project.Data
             configurationBuilder.Properties<StockMarketType>().HaveConversion<string>();
             configurationBuilder.Properties<TransactionType>().HaveConversion<string>();
             configurationBuilder.Properties<AvatarType>().HaveConversion<string>();
-            configurationBuilder.Properties<FriendStatusType>().HaveConversion<string>();
+            configurationBuilder.Properties<ExpenseCategoryType>().HaveConversion<string>();
+            configurationBuilder.Properties<ActivityActionType>().HaveConversion<string>();
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -72,55 +72,58 @@ namespace Project.Data
                 entity.HasQueryFilter(e => e.DeletedAt == null);
             });
 
-            modelBuilder.Entity<Friend>(entity =>
-            {
-                entity.HasOne(e => e.OwnerUser).WithMany(u => u.Friends).HasForeignKey(e => e.OwnerUserId)
-                    .OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(e => e.BoundUser).WithMany().HasForeignKey(e => e.BoundUserId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasIndex(e => new { e.OwnerUserId, e.Name }).IsUnique();
-
-                entity.HasQueryFilter(e => e.DeletedAt == null && e.OwnerUser.DeletedAt == null);
-            });
-
-            modelBuilder.Entity<Friendship>(entity =>
-            {
-                entity.HasOne(e => e.Requester).WithMany().HasForeignKey(e => e.RequesterId)
-                    .OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(e => e.Addressee).WithMany().HasForeignKey(e => e.AddresseeId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasIndex(e => new { e.RequesterId, e.AddresseeId }).IsUnique();
-
-                entity.HasQueryFilter(e => e.DeletedAt == null && e.Requester.DeletedAt == null && e.Addressee.DeletedAt == null);
-            });
-
             modelBuilder.Entity<Group>(entity =>
             {
+                entity.Property(e => e.Name).HasMaxLength(32);
+                entity.Property(e => e.Description).HasMaxLength(200);
+                entity.Property(e => e.InviteCode).HasMaxLength(16);
+
                 entity.HasOne(e => e.OwnerUser).WithMany(u => u.OwnedGroups).HasForeignKey(e => e.OwnerUserId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => e.InviteCode).IsUnique().HasFilter("[DeletedAt] IS NULL");
 
                 entity.HasQueryFilter(e => e.DeletedAt == null && e.OwnerUser.DeletedAt == null);
             });
 
             modelBuilder.Entity<GroupMember>(entity =>
             {
-                entity.HasOne(e => e.Group).WithMany(g => g.GroupMembers).HasForeignKey(e => e.GroupId);
-                entity.HasOne(e => e.Friend).WithMany().HasForeignKey(e => e.FriendId)
+                entity.Property(e => e.DisplayName).HasMaxLength(32);
+
+                entity.HasOne(e => e.Group).WithMany(g => g.GroupMembers).HasForeignKey(e => e.GroupId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasIndex(e => new { e.GroupId, e.FriendId }).IsUnique();
+                // 兩個 filter 條件缺一不可：UserId 可為 null（未綁定成員可以同名多筆），
+                // DeletedAt 條件則讓被移除的成員之後能重新加回同一群組
+                entity.HasIndex(e => new { e.GroupId, e.UserId }).IsUnique()
+                    .HasFilter("[UserId] IS NOT NULL AND [DeletedAt] IS NULL");
 
-                entity.HasQueryFilter(e => e.DeletedAt == null && e.Group.DeletedAt == null && e.Friend.DeletedAt == null);
+                entity.HasQueryFilter(e => e.DeletedAt == null && e.Group.DeletedAt == null);
             });
 
             modelBuilder.Entity<Expense>(entity =>
             {
-                entity.HasOne(e => e.Group).WithMany(g => g.Expenses).HasForeignKey(e => e.GroupId);
-                entity.HasOne(e => e.Payer).WithMany(gm => gm.Expenses).HasForeignKey(e => e.PayerId)
+                entity.Property(e => e.Name).HasMaxLength(50);
+                entity.Property(e => e.Description).HasMaxLength(200);
+                entity.Property(e => e.Amount).HasPrecision(18, 2);
+
+                // Rate 精度刻意高於其他金額欄位：JPY→TWD 約 0.21，
+                // 兩位小數會讓 ¥10,000 的換算誤差達數百元
+                entity.Property(e => e.Rate).HasPrecision(18, 6);
+
+                entity.HasOne(e => e.Group).WithMany(g => g.Expenses).HasForeignKey(e => e.GroupId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Payer).WithMany(gm => gm.PaidExpenses).HasForeignKey(e => e.PayerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.CreatedByUser).WithMany().HasForeignKey(e => e.CreatedByUserId)
                     .OnDelete(DeleteBehavior.Restrict);
 
+                entity.HasIndex(e => e.GroupId);
+
+                // 刻意不串 Payer：付款人被移除後，這筆花費仍必須查得到，
+                // 否則其他人的分攤會跟著整筆消失。
                 entity.HasQueryFilter(e => e.DeletedAt == null && e.Group.DeletedAt == null);
             });
 
@@ -128,11 +131,57 @@ namespace Project.Data
             {
                 entity.Property(e => e.Amount).HasPrecision(18, 2);
 
-                entity.HasOne(e => e.Expense).WithMany(e => e.ExpenseShares).HasForeignKey(e => e.ExpenseId);
+                entity.HasOne(e => e.Expense).WithMany(e => e.ExpenseShares).HasForeignKey(e => e.ExpenseId)
+                    .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.GroupMember).WithMany(gm => gm.ExpenseShares).HasForeignKey(e => e.GroupMemberId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasQueryFilter(e => e.DeletedAt == null && e.Expense.DeletedAt == null && e.GroupMember.DeletedAt == null);
+                entity.HasIndex(e => e.ExpenseId);
+
+                // 刻意不串 GroupMember：成員移除後歷史明細必須保留，
+                // 串了會讓他的分攤整批消失，花費加總立刻不等於原幣總額。
+                // 這不是疏漏，補上去會弄壞 Split Bill 的核心不變量。
+                entity.HasQueryFilter(e => e.DeletedAt == null && e.Expense.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<Settlement>(entity =>
+            {
+                entity.Property(e => e.Amount).HasPrecision(18, 2);
+
+                entity.HasOne(e => e.Group).WithMany(g => g.Settlements).HasForeignKey(e => e.GroupId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // FromMember 與 ToMember 同時指向 GroupMember，Restrict 在此是必要而非偏好：
+                // 用 cascade 會觸發 SQL Server 的多重 cascade path 錯誤
+                entity.HasOne(e => e.FromMember).WithMany().HasForeignKey(e => e.FromMemberId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.ToMember).WithMany().HasForeignKey(e => e.ToMemberId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.CreatedByUser).WithMany().HasForeignKey(e => e.CreatedByUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => e.GroupId);
+
+                // 刻意不串 FromMember / ToMember：任一方被移除後，
+                // 這筆還款仍是發生過的事實，不該從歷史中消失。
+                entity.HasQueryFilter(e => e.DeletedAt == null && e.Group.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<ActivityLog>(entity =>
+            {
+                entity.Property(e => e.Summary).HasMaxLength(500);
+
+                entity.HasOne(e => e.Group).WithMany(g => g.ActivityLogs).HasForeignKey(e => e.GroupId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.ActorUser).WithMany().HasForeignKey(e => e.ActorUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.TargetExpense).WithMany().HasForeignKey(e => e.TargetExpenseId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => e.GroupId);
+
+                // 動態沒有 DeletedAt —— 它是不可變的事實紀錄，只跟著群組走
+                entity.HasQueryFilter(e => e.Group.DeletedAt == null);
             });
         }
 

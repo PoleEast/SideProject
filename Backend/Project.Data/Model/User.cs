@@ -14,6 +14,5 @@
         public ICollection<Transaction> Transactions { get; set; } = [];
         public ICollection<Avatar> Avatars { get; set; } = [];
         public ICollection<Group> OwnedGroups { get; set; } = [];
-        public ICollection<Friend> Friends { get; set; } = [];
     }
 }

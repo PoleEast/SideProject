@@ -12,7 +12,7 @@ using Project.Data;
 namespace AssetTracker.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260629070719_AddSplitBillTables")]
+    [Migration("20260805102838_AddSplitBillTables")]
     partial class AddSplitBillTables
     {
         /// <inheritdoc />
@@ -20,10 +20,50 @@ namespace AssetTracker.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("Project.Data.Model.ActivityLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ActorUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("TargetExpenseId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("TargetExpenseId");
+
+                    b.ToTable("ActivityLogs");
+                });
 
             modelBuilder.Entity("Project.Data.Model.Avatar", b =>
                 {
@@ -67,10 +107,21 @@ namespace AssetTracker.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("CurrencyType")
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Currency")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -82,22 +133,30 @@ namespace AssetTracker.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("GroupId")
                         .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("PayerId")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("Rate")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("GroupId");
 
@@ -130,9 +189,6 @@ namespace AssetTracker.Migrations
                     b.Property<int>("GroupMemberId")
                         .HasColumnType("int");
 
-                    b.Property<bool>("IsPaid")
-                        .HasColumnType("bit");
-
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -145,80 +201,6 @@ namespace AssetTracker.Migrations
                     b.ToTable("ExpenseShares");
                 });
 
-            modelBuilder.Entity("Project.Data.Model.Friend", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("BoundUserId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("OwnerUserId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BoundUserId");
-
-                    b.HasIndex("OwnerUserId", "Name")
-                        .IsUnique();
-
-                    b.ToTable("Friends");
-                });
-
-            modelBuilder.Entity("Project.Data.Model.Friendship", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AddresseeId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("RequesterId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AddresseeId");
-
-                    b.HasIndex("RequesterId", "AddresseeId")
-                        .IsUnique();
-
-                    b.ToTable("Friendships");
-                });
-
             modelBuilder.Entity("Project.Data.Model.Group", b =>
                 {
                     b.Property<int>("Id")
@@ -227,26 +209,33 @@ namespace AssetTracker.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("DefaultCurrency")
+                    b.Property<string>("BaseCurrency")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
-                    b.Property<bool>("IsQuickSplit")
-                        .HasColumnType("bit");
+                    b.Property<string>("InviteCode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<int>("OwnerUserId")
                         .HasColumnType("int");
@@ -255,6 +244,10 @@ namespace AssetTracker.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("InviteCode")
+                        .IsUnique()
+                        .HasFilter("[DeletedAt] IS NULL");
 
                     b.HasIndex("OwnerUserId");
 
@@ -275,8 +268,10 @@ namespace AssetTracker.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("FriendId")
-                        .HasColumnType("int");
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<int>("GroupId")
                         .HasColumnType("int");
@@ -284,14 +279,67 @@ namespace AssetTracker.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("FriendId");
+                    b.HasIndex("UserId");
 
-                    b.HasIndex("GroupId", "FriendId")
-                        .IsUnique();
+                    b.HasIndex("GroupId", "UserId")
+                        .IsUnique()
+                        .HasFilter("[UserId] IS NOT NULL AND [DeletedAt] IS NULL");
 
                     b.ToTable("GroupMembers");
+                });
+
+            modelBuilder.Entity("Project.Data.Model.Settlement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FromMemberId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("GroupId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SettledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ToMemberId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("FromMemberId");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("ToMemberId");
+
+                    b.ToTable("Settlements");
                 });
 
             modelBuilder.Entity("Project.Data.Model.StockPriceHistory", b =>
@@ -457,6 +505,32 @@ namespace AssetTracker.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("Project.Data.Model.ActivityLog", b =>
+                {
+                    b.HasOne("Project.Data.Model.User", "ActorUser")
+                        .WithMany()
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Project.Data.Model.Group", "Group")
+                        .WithMany("ActivityLogs")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Project.Data.Model.Expense", "TargetExpense")
+                        .WithMany()
+                        .HasForeignKey("TargetExpenseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ActorUser");
+
+                    b.Navigation("Group");
+
+                    b.Navigation("TargetExpense");
+                });
+
             modelBuilder.Entity("Project.Data.Model.Avatar", b =>
                 {
                     b.HasOne("Project.Data.Model.User", "User")
@@ -470,17 +544,25 @@ namespace AssetTracker.Migrations
 
             modelBuilder.Entity("Project.Data.Model.Expense", b =>
                 {
+                    b.HasOne("Project.Data.Model.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Project.Data.Model.Group", "Group")
                         .WithMany("Expenses")
                         .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Project.Data.Model.GroupMember", "Payer")
-                        .WithMany("Expenses")
+                        .WithMany("PaidExpenses")
                         .HasForeignKey("PayerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("CreatedByUser");
 
                     b.Navigation("Group");
 
@@ -492,7 +574,7 @@ namespace AssetTracker.Migrations
                     b.HasOne("Project.Data.Model.Expense", "Expense")
                         .WithMany("ExpenseShares")
                         .HasForeignKey("ExpenseId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Project.Data.Model.GroupMember", "GroupMember")
@@ -504,43 +586,6 @@ namespace AssetTracker.Migrations
                     b.Navigation("Expense");
 
                     b.Navigation("GroupMember");
-                });
-
-            modelBuilder.Entity("Project.Data.Model.Friend", b =>
-                {
-                    b.HasOne("Project.Data.Model.User", "BoundUser")
-                        .WithMany()
-                        .HasForeignKey("BoundUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Project.Data.Model.User", "OwnerUser")
-                        .WithMany("Friends")
-                        .HasForeignKey("OwnerUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("BoundUser");
-
-                    b.Navigation("OwnerUser");
-                });
-
-            modelBuilder.Entity("Project.Data.Model.Friendship", b =>
-                {
-                    b.HasOne("Project.Data.Model.User", "Addressee")
-                        .WithMany()
-                        .HasForeignKey("AddresseeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Project.Data.Model.User", "Requester")
-                        .WithMany()
-                        .HasForeignKey("RequesterId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Addressee");
-
-                    b.Navigation("Requester");
                 });
 
             modelBuilder.Entity("Project.Data.Model.Group", b =>
@@ -556,21 +601,55 @@ namespace AssetTracker.Migrations
 
             modelBuilder.Entity("Project.Data.Model.GroupMember", b =>
                 {
-                    b.HasOne("Project.Data.Model.Friend", "Friend")
+                    b.HasOne("Project.Data.Model.Group", "Group")
+                        .WithMany("GroupMembers")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Project.Data.Model.User", "User")
                         .WithMany()
-                        .HasForeignKey("FriendId")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Group");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Project.Data.Model.Settlement", b =>
+                {
+                    b.HasOne("Project.Data.Model.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Project.Data.Model.GroupMember", "FromMember")
+                        .WithMany()
+                        .HasForeignKey("FromMemberId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Project.Data.Model.Group", "Group")
-                        .WithMany("GroupMembers")
+                        .WithMany("Settlements")
                         .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Friend");
+                    b.HasOne("Project.Data.Model.GroupMember", "ToMember")
+                        .WithMany()
+                        .HasForeignKey("ToMemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("FromMember");
 
                     b.Navigation("Group");
+
+                    b.Navigation("ToMember");
                 });
 
             modelBuilder.Entity("Project.Data.Model.Transaction", b =>
@@ -591,23 +670,25 @@ namespace AssetTracker.Migrations
 
             modelBuilder.Entity("Project.Data.Model.Group", b =>
                 {
+                    b.Navigation("ActivityLogs");
+
                     b.Navigation("Expenses");
 
                     b.Navigation("GroupMembers");
+
+                    b.Navigation("Settlements");
                 });
 
             modelBuilder.Entity("Project.Data.Model.GroupMember", b =>
                 {
                     b.Navigation("ExpenseShares");
 
-                    b.Navigation("Expenses");
+                    b.Navigation("PaidExpenses");
                 });
 
             modelBuilder.Entity("Project.Data.Model.User", b =>
                 {
                     b.Navigation("Avatars");
-
-                    b.Navigation("Friends");
 
                     b.Navigation("OwnedGroups");
 

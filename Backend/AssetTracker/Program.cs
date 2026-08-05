@@ -1,13 +1,16 @@
 using AssetTracker;
 using AssetTracker.ApiClients;
 using AssetTracker.Middleware;
+using AssetTracker.Options;
 using AssetTracker.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 using Project.Core.Auth;
 using Project.Data;
 using Scalar.AspNetCore;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -42,16 +45,44 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     };
 });
 
-builder.Services.AddHttpClient<IStockApiClients, FinMindApiClient>(client =>
+// 設定一律經由 Options 綁定並於啟動階段驗證
+builder.Services.AddOptions<FinMindOptions>()
+    .Bind(builder.Configuration.GetSection(FinMindOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddOptions<ExchangeRateOptions>()
+    .Bind(builder.Configuration.GetSection(ExchangeRateOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddOptions<FrontendCorsOptions>()
+    .Bind(builder.Configuration.GetSection(FrontendCorsOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+// 設定資料庫連線字串，若未設定則直接在啟動階段拋出例外
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
 {
-    client.BaseAddress = new Uri(builder.Configuration["FinMindApi:BaseApi"]!);
+    throw new InvalidOperationException(
+        "缺少設定 'ConnectionStrings:DefaultConnection'，請參考 secrets.sample.json 設定 user secrets。");
+}
+
+builder.Services.AddHttpClient<IStockApiClients, FinMindApiClient>((serviceProvider, client) =>
+{
+    var finMind = serviceProvider.GetRequiredService<IOptions<FinMindOptions>>().Value;
+
+    client.BaseAddress = new Uri(finMind.NormalizedBaseApi);
     client.Timeout = TimeSpan.FromSeconds(30);
-    client.DefaultRequestHeaders.Add("Authorization", builder.Configuration["FinMindApi:Key"]);
+    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", finMind.Key);
 });
 
-builder.Services.AddHttpClient<IExchangeRateApiClient, ExchangeRateApiClient>(client =>
+builder.Services.AddHttpClient<IExchangeRateApiClient, ExchangeRateApiClient>((serviceProvider, client) =>
 {
-    client.BaseAddress = new Uri(builder.Configuration["ExchangeRateApi:BaseApi"]! + builder.Configuration["ExchangeRateApi:Key"] + "/");
+    var exchangeRate = serviceProvider.GetRequiredService<IOptions<ExchangeRateOptions>>().Value;
+
+    client.BaseAddress = new Uri(exchangeRate.BaseAddressWithKey);
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
@@ -67,17 +98,17 @@ builder.Services.AddScoped<ExchangeRateService>();
 builder.Services.AddScoped<PositionService>();
 
 builder.Services.AddSharedAuth(builder.Configuration);
-
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlOptions => sqlOptions.EnableRetryOnFailure()));
+    options.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure()));
 
+var frontendCors = builder.Configuration
+    .GetSection(FrontendCorsOptions.SectionName)
+    .Get<FrontendCorsOptions>() ?? new FrontendCorsOptions();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+        policy.WithOrigins(frontendCors.AllowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();

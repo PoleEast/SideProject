@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Project.Data.Model;
 using System.IdentityModel.Tokens.Jwt;
@@ -7,24 +7,13 @@ using System.Text;
 
 namespace Project.Core.Auth
 {
-    public class JwtService(IConfiguration configuration)
+    public class JwtService(IOptions<JwtOptions> jwtOptions)
     {
+        private readonly JwtOptions _jwtOptions = jwtOptions.Value;
+
         public string GenerateToken(User user)
         {
-            var issuer = configuration.GetValue<string>("Jwt:Issuer");
-            var signKey = configuration.GetValue<string>("Jwt:Key");
-            var audience = configuration.GetValue<string>("Jwt:Audience");
             var expires = DateTime.UtcNow.AddDays(1);
-
-            if (issuer == null || signKey == null || audience == null)
-            {
-                var missing = new List<string>();
-                if (issuer == null) missing.Add("Issuer");
-                if (signKey == null) missing.Add("Key");
-                if (audience == null) missing.Add("Audience");
-                var message = $"Missing JWT configuration : {string.Join(", ", missing)}";
-                throw new InvalidOperationException(message);
-            }
 
             var claims = new List<Claim>
             {
@@ -33,12 +22,12 @@ namespace Project.Core.Auth
                 new(JwtRegisteredClaimNames.Sub, user.Account),
             };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signKey));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtOptions.Key));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
-                    issuer: issuer,
-                    audience: audience,
+                    issuer: _jwtOptions.Issuer,
+                    audience: _jwtOptions.Audience,
                     claims: claims,
                     signingCredentials: credentials,
                     expires: expires

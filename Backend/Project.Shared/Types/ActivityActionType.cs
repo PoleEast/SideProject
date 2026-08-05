@@ -6,7 +6,6 @@ namespace Project.Shared.Types
     /// 群組動態的變動類型
     /// </summary>
     /// <remarks>
-    /// 僅供前端決定圖示與顏色使用。動態的內容一律讀 <c>ActivityLog.Summary</c>，
     /// 前端不解析該字串（見 ADR 20260731_扁平信任權限與群組動態）。
     /// </remarks>
     public enum ActivityActionType

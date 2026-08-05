@@ -95,8 +95,6 @@ namespace Project.Data
                 entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // 兩個 filter 條件缺一不可：UserId 可為 null（未綁定成員可以同名多筆），
-                // DeletedAt 條件則讓被移除的成員之後能重新加回同一群組
                 entity.HasIndex(e => new { e.GroupId, e.UserId }).IsUnique()
                     .HasFilter("[UserId] IS NOT NULL AND [DeletedAt] IS NULL");
 
@@ -109,8 +107,6 @@ namespace Project.Data
                 entity.Property(e => e.Description).HasMaxLength(200);
                 entity.Property(e => e.Amount).HasPrecision(18, 2);
 
-                // Rate 精度刻意高於其他金額欄位：JPY→TWD 約 0.21，
-                // 兩位小數會讓 ¥10,000 的換算誤差達數百元
                 entity.Property(e => e.Rate).HasPrecision(18, 6);
 
                 entity.HasOne(e => e.Group).WithMany(g => g.Expenses).HasForeignKey(e => e.GroupId)
@@ -122,8 +118,7 @@ namespace Project.Data
 
                 entity.HasIndex(e => e.GroupId);
 
-                // 刻意不串 Payer：付款人被移除後，這筆花費仍必須查得到，
-                // 否則其他人的分攤會跟著整筆消失。
+                // 刻意不串 Payer：付款人被移除後這筆花費仍必須查得到
                 entity.HasQueryFilter(e => e.DeletedAt == null && e.Group.DeletedAt == null);
             });
 
@@ -140,7 +135,7 @@ namespace Project.Data
 
                 // 刻意不串 GroupMember：成員移除後歷史明細必須保留，
                 // 串了會讓他的分攤整批消失，花費加總立刻不等於原幣總額。
-                // 這不是疏漏，補上去會弄壞 Split Bill 的核心不變量。
+                // 這不是疏漏 —— 補上去會弄壞分帳的核心不變量。
                 entity.HasQueryFilter(e => e.DeletedAt == null && e.Expense.DeletedAt == null);
             });
 
@@ -151,8 +146,6 @@ namespace Project.Data
                 entity.HasOne(e => e.Group).WithMany(g => g.Settlements).HasForeignKey(e => e.GroupId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // FromMember 與 ToMember 同時指向 GroupMember，Restrict 在此是必要而非偏好：
-                // 用 cascade 會觸發 SQL Server 的多重 cascade path 錯誤
                 entity.HasOne(e => e.FromMember).WithMany().HasForeignKey(e => e.FromMemberId)
                     .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.ToMember).WithMany().HasForeignKey(e => e.ToMemberId)
@@ -162,8 +155,7 @@ namespace Project.Data
 
                 entity.HasIndex(e => e.GroupId);
 
-                // 刻意不串 FromMember / ToMember：任一方被移除後，
-                // 這筆還款仍是發生過的事實，不該從歷史中消失。
+                // 刻意不串 FromMember / ToMember：任一方被移除後這筆還款仍須留在歷史中
                 entity.HasQueryFilter(e => e.DeletedAt == null && e.Group.DeletedAt == null);
             });
 

@@ -1,7 +1,7 @@
-using Project.Tests.Helpers;
 using Project.Api.Helpers;
 using Project.Data.Model;
 using Project.Shared.Types;
+using Project.Tests.Helpers;
 
 namespace Project.Tests;
 

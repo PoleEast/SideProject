@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Project.Api.Common;
 using Project.Api.Services;
+using Project.Core.Common;
 using Project.Shared.DTOs.Position;
 using Project.Shared.Types;
 using System.Security.Claims;

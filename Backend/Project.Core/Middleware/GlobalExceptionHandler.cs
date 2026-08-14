@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
-namespace Project.Api.Middleware
+namespace Project.Core.Middleware
 {
     /// <summary>
     /// 全域例外處理器，stack trace 只進 log

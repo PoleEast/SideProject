@@ -1,6 +1,7 @@
+using Microsoft.AspNetCore.Http;
 using Project.Shared.Types;
 
-namespace Project.Api.Common
+namespace Project.Core.Common
 {
     /// <summary>
     /// Result 相關的擴充方法，處理 ResultCode 與 HTTP 協定之間的對應

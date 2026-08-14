@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Project.Api.Common;
 using Project.Core.Auth;
+using Project.Core.Common;
 using Project.Shared.DTOs.Auth;
 using Project.Shared.Types;
 

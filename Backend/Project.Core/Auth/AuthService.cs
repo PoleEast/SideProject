@@ -1,11 +1,11 @@
 ﻿using Mapster;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Project.Data;
 using Project.Data.Model;
 using Project.Shared.DTOs;
 using Project.Shared.DTOs.Auth;
 using Project.Shared.Types;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace Project.Core.Auth
 {

@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Project.Api.Common;
 using Project.Api.Services;
+using Project.Core.Common;
 using Project.Shared.DTOs.ExchangeRate;
 using Project.Shared.Types;
 

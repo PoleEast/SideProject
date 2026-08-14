@@ -92,7 +92,7 @@
 
 ```bash
 # 後端
-cd Backend/AssetTracker
+cd Backend/Project.Api
 dotnet ef database update --project ../Project.Data
 dotnet run
 

@@ -1,8 +1,6 @@
 .vs/
 bin/
 obj/
-/Backend/AssetTracker.Tests/AssetTracker.Tests.csproj.user
-/Backend/Backend.slnLaunch.user
 /docs
 /.claude
 CLAUDE.md

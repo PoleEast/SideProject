@@ -7,3 +7,4 @@ obj/
 /.claude
 CLAUDE.md
 CONTEXT.md
+*.user

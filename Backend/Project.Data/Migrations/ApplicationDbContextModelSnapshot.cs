@@ -8,7 +8,7 @@ using Project.Data;
 
 #nullable disable
 
-namespace AssetTracker.Migrations
+namespace Project.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
     partial class ApplicationDbContextModelSnapshot : ModelSnapshot

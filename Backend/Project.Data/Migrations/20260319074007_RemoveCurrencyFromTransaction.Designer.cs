@@ -9,7 +9,7 @@ using Project.Data;
 
 #nullable disable
 
-namespace AssetTracker.Migrations
+namespace Project.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
     [Migration("20260319074007_RemoveCurrencyFromTransaction")]

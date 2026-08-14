@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace AssetTracker.Migrations
+namespace Project.Data.Migrations
 {
     /// <inheritdoc />
     public partial class AddSplitBillTables : Migration

@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace AssetTracker.Migrations
+namespace Project.Data.Migrations
 {
     /// <inheritdoc />
     public partial class RemoveExchangeRateHistories : Migration

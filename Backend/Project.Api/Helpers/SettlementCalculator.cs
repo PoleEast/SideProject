@@ -21,26 +21,39 @@ public static class SettlementCalculator
     /// <returns>所有非零的兩兩淨額，<c>Amount</c> 恆為正；淨額為 0 的組合不列入</returns>
     public static List<MemberBalance> CalculateBalances(IEnumerable<BalanceEntry> entries)
     {
-        // 以 (較小Id, 較大Id) 為鍵分組，方向改由金額正負表達，
-        // 正值代表較小Id 欠較大Id，反向分錄記為負值後相加即自然相抵
         var netByPair = entries
+            // 自己欠自己沒有對象可抵銷，不排除會輸出 MemberBalance(X, X)
             .Where(entry => entry.DebtorMemberId != entry.CreditorMemberId)
-            .GroupBy(entry => (
-                LowMemberId: Math.Min(entry.DebtorMemberId, entry.CreditorMemberId),
-                HighMemberId: Math.Max(entry.DebtorMemberId, entry.CreditorMemberId)))
-            .Select(group => (
-                group.Key,
-                Net: group.Sum(entry =>
-                    entry.DebtorMemberId == group.Key.LowMemberId ? entry.Amount : -entry.Amount)));
+            .Select(ToSignedEntry)
+            .GroupBy(signed => signed.Pair)
+            .Select(group => (Pair: group.Key, Net: group.Sum(signed => signed.Amount)));
 
-        // 依成員 Id 排序，結果才不會隨輸入順序（即 DB 回傳的列順序）而跳動
+        // 依成員 Id 排序，結果才不會隨輸入順序而跳動
         return netByPair
-            .Where(pair => pair.Net != 0)
-            .OrderBy(pair => pair.Key.LowMemberId)
-            .ThenBy(pair => pair.Key.HighMemberId)
-            .Select(pair => pair.Net > 0
-                ? new MemberBalance(pair.Key.LowMemberId, pair.Key.HighMemberId, pair.Net)
-                : new MemberBalance(pair.Key.HighMemberId, pair.Key.LowMemberId, -pair.Net))
+            .Where(pairNet => pairNet.Net != 0)
+            .OrderBy(pairNet => pairNet.Pair.LowMemberId)
+            .ThenBy(pairNet => pairNet.Pair.HighMemberId)
+            .Select(pairNet => ToMemberBalance(pairNet.Pair, pairNet.Net))
             .ToList();
     }
+
+    /// <summary>
+    /// 把分錄的方向編碼成正負號
+    /// </summary>
+    /// <returns>鍵固定為 (較小Id, 較大Id)；正值代表較小Id 欠較大Id</returns>
+    private static SignedEntry ToSignedEntry(BalanceEntry entry) =>
+        entry.DebtorMemberId < entry.CreditorMemberId
+            ? new SignedEntry(new MemberPair(entry.DebtorMemberId, entry.CreditorMemberId), entry.Amount)
+            : new SignedEntry(new MemberPair(entry.CreditorMemberId, entry.DebtorMemberId), -entry.Amount);
+
+    /// <summary>
+    /// <see cref="ToSignedEntry"/> 的反向 - 把正負號解回欠款方向
+    /// </summary>
+    private static MemberBalance ToMemberBalance(MemberPair pair, decimal net) =>
+        net > 0
+            ? new MemberBalance(pair.LowMemberId, pair.HighMemberId, net)
+            : new MemberBalance(pair.HighMemberId, pair.LowMemberId, -net);
+
+    private readonly record struct MemberPair(int LowMemberId, int HighMemberId);
+    private readonly record struct SignedEntry(MemberPair Pair, decimal Amount);
 }

@@ -31,8 +31,6 @@ namespace Project.Data.Model
         public DateTime? UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
 
-        public User OwnerUser { get; set; } = null!;
-
         public ICollection<GroupMember> GroupMembers { get; set; } = [];
         public ICollection<Expense> Expenses { get; set; } = [];
         public ICollection<Settlement> Settlements { get; set; } = [];

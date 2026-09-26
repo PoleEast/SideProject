@@ -39,7 +39,6 @@ namespace Project.Data.Model
 
         public Group Group { get; set; } = null!;
         public GroupMember Payer { get; set; } = null!;
-        public User CreatedByUser { get; set; } = null!;
 
         public ICollection<ExpenseShare> ExpenseShares { get; set; } = [];
     }

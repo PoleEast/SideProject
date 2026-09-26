@@ -78,12 +78,12 @@ namespace Project.Data
                 entity.Property(e => e.Description).HasMaxLength(200);
                 entity.Property(e => e.InviteCode).HasMaxLength(16);
 
-                entity.HasOne(e => e.OwnerUser).WithMany(u => u.OwnedGroups).HasForeignKey(e => e.OwnerUserId)
+                entity.HasOne<User>().WithMany(u => u.OwnedGroups).HasForeignKey(e => e.OwnerUserId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasIndex(e => e.InviteCode).IsUnique().HasFilter("[DeletedAt] IS NULL");
 
-                entity.HasQueryFilter(e => e.DeletedAt == null && e.OwnerUser.DeletedAt == null);
+                entity.HasQueryFilter(e => e.DeletedAt == null);
             });
 
             modelBuilder.Entity<GroupMember>(entity =>
@@ -113,7 +113,7 @@ namespace Project.Data
                     .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.Payer).WithMany(gm => gm.PaidExpenses).HasForeignKey(e => e.PayerId)
                     .OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(e => e.CreatedByUser).WithMany().HasForeignKey(e => e.CreatedByUserId)
+                entity.HasOne<User>().WithMany().HasForeignKey(e => e.CreatedByUserId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasIndex(e => e.GroupId);
@@ -150,7 +150,7 @@ namespace Project.Data
                     .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.ToMember).WithMany().HasForeignKey(e => e.ToMemberId)
                     .OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(e => e.CreatedByUser).WithMany().HasForeignKey(e => e.CreatedByUserId)
+                entity.HasOne<User>().WithMany().HasForeignKey(e => e.CreatedByUserId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasIndex(e => e.GroupId);
@@ -165,7 +165,7 @@ namespace Project.Data
 
                 entity.HasOne(e => e.Group).WithMany(g => g.ActivityLogs).HasForeignKey(e => e.GroupId)
                     .OnDelete(DeleteBehavior.Restrict);
-                entity.HasOne(e => e.ActorUser).WithMany().HasForeignKey(e => e.ActorUserId)
+                entity.HasOne<User>().WithMany().HasForeignKey(e => e.ActorUserId)
                     .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.TargetExpense).WithMany().HasForeignKey(e => e.TargetExpenseId)
                     .OnDelete(DeleteBehavior.Restrict);

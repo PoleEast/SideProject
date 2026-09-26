@@ -40,6 +40,5 @@ namespace Project.Data.Model
         public Group Group { get; set; } = null!;
         public GroupMember FromMember { get; set; } = null!;
         public GroupMember ToMember { get; set; } = null!;
-        public User CreatedByUser { get; set; } = null!;
     }
 }

@@ -62,20 +62,23 @@ public class SplitBillDataLayerTests
         Assert.Empty(await context.ExpenseShares.ToListAsync(Ct));
     }
 
-    [Fact(DisplayName = "軟刪使用者：其擁有的群組一併查不到")]
-    public async Task SoftDeleteOwnerUser_TheirGroupFilteredOut()
+    [Fact(DisplayName = "軟刪擁有者的使用者：群組與其中的帳目仍然查得到")]
+    public async Task SoftDeleteOwnerUser_TheirGroupStillVisible()
     {
         // Arrange
         using var context = DbContextTestHelper.CreateContext();
         await SplitBillSeeder.SeedAsync(context);
 
-        // Act
+        // Act - 擁有者註銷帳號
         var user = await context.Users.SingleAsync(Ct);
         context.Users.Remove(user);
         await context.SaveChangesAsync(Ct);
 
-        // Assert
-        Assert.Empty(await context.Groups.ToListAsync(Ct));
+        // Assert - 其他成員的帳本不隨第三人的帳號狀態蒸發
+        Assert.Single(await context.Groups.ToListAsync(Ct));
+        Assert.Single(await context.Expenses.ToListAsync(Ct));
+        Assert.Equal(3, (await context.ExpenseShares.ToListAsync(Ct)).Count);
+        Assert.Single(await context.Settlements.ToListAsync(Ct));
     }
 
     #endregion

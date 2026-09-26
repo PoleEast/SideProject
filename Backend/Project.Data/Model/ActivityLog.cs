@@ -23,7 +23,6 @@ namespace Project.Data.Model
         public DateTime CreatedAt { get; set; }
 
         public Group Group { get; set; } = null!;
-        public User ActorUser { get; set; } = null!;
         public Expense? TargetExpense { get; set; }
     }
 }

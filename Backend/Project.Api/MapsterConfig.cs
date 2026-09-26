@@ -5,6 +5,7 @@ using Project.Shared.DTOs.ExchangeRate;
 using Project.Shared.DTOs.ExchangeRate.ExchangeRateAPI;
 using Project.Shared.DTOs.FinMind.StockInfo;
 using Project.Shared.DTOs.FinMind.StockPrice;
+using Project.Shared.DTOs.SplitBill;
 using Project.Shared.DTOs.Stock;
 using Project.Shared.DTOs.Transaction;
 using Project.Shared.Types;
@@ -138,6 +139,16 @@ namespace Project.Api
                 .Map(d => d.IndustryCategory, s => s.IndustryCategory)
                 .Map(d => d.Exchange, s => s.Exchange)
                 .Ignore(d => d.StockMarket);
+
+            TypeAdapterConfig<Group, GroupResponse>.NewConfig()
+                .Map(d => d.Id, s => s.Id)
+                .Map(d => d.Name, s => s.Name)
+                .Map(d => d.Description, s => s.Description)
+                .Map(d => d.BaseCurrency, s => s.BaseCurrency)
+                .Map(d => d.InviteCode, s => s.InviteCode)
+                .Map(d => d.OwnerUserId, s => s.OwnerUserId)
+                .Map(d => d.ClosedAt, s => s.ClosedAt)
+                .Map(d => d.CreatedAt, s => s.CreatedAt);
 
             TypeAdapterConfig<Transaction, TransactionResponse>.NewConfig()
                 .Map(d => d.Id, s => s.Id)

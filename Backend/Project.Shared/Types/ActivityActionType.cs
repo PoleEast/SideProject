@@ -21,6 +21,18 @@ namespace Project.Shared.Types
         [Description("移除成員")]
         MemberRemoved,
         [Description("記錄還款")]
-        SettlementRecorded
+        SettlementRecorded,
+        [Description("建立群組")]
+        GroupCreated,
+        [Description("編輯群組")]
+        GroupUpdated,
+        [Description("刪除群組")]
+        GroupDeleted,
+        [Description("結束群組")]
+        GroupClosed,
+        [Description("重啟群組")]
+        GroupReopened,
+        [Description("重置邀請碼")]
+        InviteCodeReset
     }
 }

@@ -26,7 +26,6 @@ namespace Project.Api.Controllers
             {
                 ResultCode.Success => Ok(result.Value),
                 ResultCode.Conflict => Conflict(result.Message),
-                ResultCode.Unauthorized => Unauthorized(result.Message),
                 _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };
         }

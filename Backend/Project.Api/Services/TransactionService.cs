@@ -12,13 +12,6 @@ namespace Project.Api.Services
     {
         public async Task<Result<TransactionResponse>> CreateTransactionAsync(int userId, CreateTransactionRequest request)
         {
-            bool exists = await IsUserIdExistsAsync(userId);
-
-            if (!exists)
-            {
-                return Result<TransactionResponse>.Failure(ResultCode.Unauthorized, "使用者不存在");
-            }
-
             var transaction = new Transaction
             {
                 UserId = userId,
@@ -119,7 +112,5 @@ namespace Project.Api.Services
 
             return Result.Success();
         }
-
-        private async Task<bool> IsUserIdExistsAsync(int userId) => await dbContext.Users.AnyAsync(u => u.Id == userId);
     }
 }

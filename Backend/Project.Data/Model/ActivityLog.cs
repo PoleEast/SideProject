@@ -20,7 +20,7 @@ namespace Project.Data.Model
         /// 例如「將『晚餐』金額由 ¥10,000 改為 ¥8,000，參與者由 3 人改為 4 人」。
         /// </remarks>
         public string Summary { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
 
         public Group Group { get; set; } = null!;
         public Expense? TargetExpense { get; set; }

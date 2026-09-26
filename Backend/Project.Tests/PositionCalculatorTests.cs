@@ -11,6 +11,24 @@ namespace Project.Tests;
 /// </summary>
 public class PositionCalculatorTests
 {
+    /// <summary>
+    /// 同一天先輸入 100@10、再輸入 100@20，隔天賣出 100 股
+    /// </summary>
+    /// <remarks>
+    /// 資料庫查詢不保證回傳順序，以反轉模擬「查出來的順序與輸入順序相反」
+    /// </remarks>
+    private static List<Transaction> SameDayBuysQueriedInReverse()
+    {
+        var transactions = new TransactionBuilder()
+            .Buy(100, 10m, new DateOnly(2024, 1, 1))
+            .Buy(100, 20m, new DateOnly(2024, 1, 1))
+            .Sell(100, 15m, new DateOnly(2024, 1, 2))
+            .Build();
+        transactions.Reverse();
+
+        return transactions;
+    }
+
     #region CalculateTradeShares 測試
 
     [Fact(DisplayName = "計算持股數：只有買入，回傳總數量")]
@@ -174,8 +192,8 @@ public class PositionCalculatorTests
     {
         // Arrange - 買 100 股 @ $10, 買 100 股 @ $20
         var transactions = new TransactionBuilder()
-            .Buy(100, 10m, new DateTime(2024, 1, 1))
-            .Buy(100, 20m, new DateTime(2024, 1, 2))
+            .Buy(100, 10m, new DateOnly(2024, 1, 1))
+            .Buy(100, 20m, new DateOnly(2024, 1, 2))
             .Build();
 
         // Act
@@ -190,8 +208,8 @@ public class PositionCalculatorTests
     {
         // Arrange
         var transactions = new TransactionBuilder()
-            .Buy(100, 10m, new DateTime(2024, 1, 1))
-            .Sell(100, 15m, new DateTime(2024, 1, 2))
+            .Buy(100, 10m, new DateOnly(2024, 1, 1))
+            .Sell(100, 15m, new DateOnly(2024, 1, 2))
             .Build();
 
         // Act
@@ -206,9 +224,9 @@ public class PositionCalculatorTests
     {
         // Arrange
         var transactions = new TransactionBuilder()
-            .Buy(100, 10m, new DateTime(2025, 1, 1))
-            .Buy(100, 20m, new DateTime(2026, 1, 2))
-            .Sell(50, 15m, new DateTime(2026, 1, 20))
+            .Buy(100, 10m, new DateOnly(2025, 1, 1))
+            .Buy(100, 20m, new DateOnly(2026, 1, 2))
+            .Sell(50, 15m, new DateOnly(2026, 1, 20))
             .Build();
 
         // Act
@@ -225,9 +243,9 @@ public class PositionCalculatorTests
         // FIFO：賣出數量 100 恰好等於第一批，第一批被完全消耗
         // 剩餘持倉全部來自第二批，均價 = 20
         var transactions = new TransactionBuilder()
-            .Buy(100, 10m, new DateTime(2024, 1, 1))
-            .Buy(100, 20m, new DateTime(2024, 1, 2))
-            .Sell(100, 15m, new DateTime(2024, 1, 3))
+            .Buy(100, 10m, new DateOnly(2024, 1, 1))
+            .Buy(100, 20m, new DateOnly(2024, 1, 2))
+            .Sell(100, 15m, new DateOnly(2024, 1, 3))
             .Build();
 
         // Act
@@ -248,6 +266,19 @@ public class PositionCalculatorTests
 
         // Assert
         Assert.Equal(0m, result);
+    }
+
+    [Fact(DisplayName = "平均成本：同一天的兩筆買入，先輸入的先被賣出")]
+    public void CalculateAverageCost_SameDayBuys_EarlierEntryIsSoldFirst()
+    {
+        // Arrange
+        var transactions = SameDayBuysQueriedInReverse();
+
+        // Act
+        var result = PositionCalculator.CalculateAverageCost(transactions);
+
+        // Assert - 先輸入的 100@10 被賣掉，剩下 100@20
+        Assert.Equal(20m, result);
     }
 
     #endregion
@@ -275,8 +306,8 @@ public class PositionCalculatorTests
     {
         // Arrange - 買 100 股 @ $10, 賣 100 股 @ $15
         var transactions = new TransactionBuilder()
-            .Buy(100, 10m, new DateTime(2024, 1, 1))
-            .Sell(100, 15m, new DateTime(2024, 1, 2))
+            .Buy(100, 10m, new DateOnly(2024, 1, 1))
+            .Sell(100, 15m, new DateOnly(2024, 1, 2))
             .Build();
 
         // Act
@@ -297,9 +328,9 @@ public class PositionCalculatorTests
     {
         //Arrange
         var transactions = new TransactionBuilder()
-            .Buy(100, 10m, new DateTime(2025, 1, 1))
-            .Buy(100, 20m, new DateTime(2025, 1, 2))
-            .Sell(150, 18m, new DateTime(2025, 1, 2))
+            .Buy(100, 10m, new DateOnly(2025, 1, 1))
+            .Buy(100, 20m, new DateOnly(2025, 1, 2))
+            .Sell(150, 18m, new DateOnly(2025, 1, 2))
             .Build();
 
         // Act
@@ -322,10 +353,10 @@ public class PositionCalculatorTests
         // 第二筆賣出 80：先消耗攜帶過來的 40 股@10，再從第二批(100@20)消耗 40 股
         //   BuyPrice = (40*10 + 40*20) / 80 = 1200 / 80 = 15
         var transactions = new TransactionBuilder()
-            .Buy(100, 10m, new DateTime(2024, 1, 1))
-            .Buy(100, 20m, new DateTime(2024, 1, 2))
-            .Sell(60, 15m, new DateTime(2024, 1, 3))
-            .Sell(80, 18m, new DateTime(2024, 1, 4))
+            .Buy(100, 10m, new DateOnly(2024, 1, 1))
+            .Buy(100, 20m, new DateOnly(2024, 1, 2))
+            .Sell(60, 15m, new DateOnly(2024, 1, 3))
+            .Sell(80, 18m, new DateOnly(2024, 1, 4))
             .Build();
 
         // Act
@@ -351,8 +382,8 @@ public class PositionCalculatorTests
     {
         // Arrange - 買入 50 股，賣出 100 股，FIFO 迴圈中買入隊列耗盡時觸發衛兵判斷
         var transactions = new TransactionBuilder()
-            .Buy(50, 10m, new DateTime(2024, 1, 1))
-            .Sell(100, 15m, new DateTime(2024, 1, 2))
+            .Buy(50, 10m, new DateOnly(2024, 1, 1))
+            .Sell(100, 15m, new DateOnly(2024, 1, 2))
             .Build();
 
         // Act
@@ -367,9 +398,9 @@ public class PositionCalculatorTests
     public void CalculateRealizedPnL_AssertsMappedFields_ReturnsCorrectMetadata()
     {
         // Arrange - 使用美股市場，驗證欄位正確對應
-        var sellDate = new DateTime(2024, 3, 15);
+        var sellDate = new DateOnly(2024, 3, 15);
         var transactions = new TransactionBuilder("AAPL", StockMarketType.US)
-            .Buy(100, 150m, new DateTime(2024, 3, 1))
+            .Buy(100, 150m, new DateOnly(2024, 3, 1))
             .Sell(100, 160m, sellDate)
             .Build();
 
@@ -392,8 +423,8 @@ public class PositionCalculatorTests
     {
         // Arrange - 買入 100 股 @ $20，賣出 100 股 @ $15，每股亏損 5 元
         var transactions = new TransactionBuilder()
-            .Buy(100, 20m, new DateTime(2024, 1, 1))
-            .Sell(100, 15m, new DateTime(2024, 1, 2))
+            .Buy(100, 20m, new DateOnly(2024, 1, 1))
+            .Sell(100, 15m, new DateOnly(2024, 1, 2))
             .Build();
 
         // Act
@@ -422,6 +453,20 @@ public class PositionCalculatorTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Empty(result.Value!);
+    }
+
+    [Fact(DisplayName = "已實現損益：同一天的兩筆買入，先輸入的先被賣出")]
+    public void CalculateRealizedPnL_SameDayBuys_EarlierEntryIsSoldFirst()
+    {
+        // Arrange
+        var transactions = SameDayBuysQueriedInReverse();
+
+        // Act
+        var result = PositionCalculator.CalculateRealizedPnL(transactions);
+
+        // Assert - 先輸入的 100@10 先被賣出
+        Assert.True(result.IsSuccess);
+        Assert.Equal(10m, result.Value![0].BuyPrice);
     }
 
     #endregion

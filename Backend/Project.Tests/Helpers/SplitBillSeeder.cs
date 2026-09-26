@@ -72,7 +72,7 @@ public static class SplitBillSeeder
             Currency = CurrencyType.JPY,
             Amount = ExpenseAmount,
             Rate = 0.212345m,
-            Date = new DateTime(2026, 7, 1),
+            Date = new DateOnly(2026, 7, 1),
             CreatedByUserId = OwnerUserId
         });
 
@@ -89,7 +89,7 @@ public static class SplitBillSeeder
             FromMemberId = AmyMemberId,
             ToMemberId = MingMemberId,
             Amount = 500m,
-            SettledAt = new DateTime(2026, 7, 5),
+            Date = new DateOnly(2026, 7, 5),
             CreatedByUserId = OwnerUserId
         });
 

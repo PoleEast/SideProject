@@ -11,7 +11,7 @@ namespace Project.Api.Services
 {
     public class StockService(IStockApiClients stockApiClients, ApplicationDbContext dbContext, ILogger<StockService> logger)
     {
-        public async Task<Result<StockPriceResponse>> GetLatestStockPriceAsync(StockMarketType market, string code, DateTime asOf)
+        public async Task<Result<StockPriceResponse>> GetLatestStockPriceAsync(StockMarketType market, string code, DateOnly? asOf)
         {
             var batchResult = await GetLatestStockPricesAsync(
                 [
@@ -70,9 +70,14 @@ namespace Project.Api.Services
             return Result<BatchStockInfoResponse>.Success(response);
         }
 
-        public async Task<Result<BatchStockPriceResponse>> GetLatestStockPricesAsync(List<StockIdentifier> requests, DateTime asOf)
+        /// <param name="requests">股票清單（市場 + 代碼）</param>
+        /// <param name="asOf">截至日期；未指定時為 UTC 的今天</param>
+        public async Task<Result<BatchStockPriceResponse>> GetLatestStockPricesAsync(List<StockIdentifier> requests, DateOnly? asOf)
         {
-            if (asOf.Date > DateTime.Today)
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var targetDate = asOf ?? today;
+
+            if (targetDate > today)
             {
                 return Result<BatchStockPriceResponse>.Failure(ResultCode.BusinessRuleViolation, "查詢日期不可大於今天");
             }
@@ -85,14 +90,14 @@ namespace Project.Api.Services
                 .ToList();
 
             // 先查 DB 快取，命中直接用，沒命中的進後續流程
-            var (cachedPrices, notCached) = await TryGetFromCacheAsync(distinctRequests, asOf);
+            var (cachedPrices, notCached) = await TryGetFromCacheAsync(distinctRequests, targetDate);
             batchResult.Succeeded.AddRange(cachedPrices);
 
             // 驗證股票代碼是否支援
             var (validRequests, invalidFailures) = await ValidateStockInfosAsync(notCached);
             batchResult.Failed.AddRange(invalidFailures);
 
-            var (allPrices, fetchFailures) = await FetchFromApiAsync(validRequests, asOf);
+            var (allPrices, fetchFailures) = await FetchFromApiAsync(validRequests, targetDate);
             batchResult.Failed.AddRange(fetchFailures);
 
             // 只寫入 DB 還沒有的資料，避免約束衝突
@@ -110,7 +115,7 @@ namespace Project.Api.Services
                 }
             }
 
-            // asOf是非交易日時，取最新一筆當作當天收盤價
+            // 截至日期是非交易日時，取最新一筆當作當天收盤價
             var latestPrices = allPrices
                 .GroupBy(p => (p.StockMarket, p.Code))
                 .Select(g => g.MaxBy(p => p.Date)!)
@@ -123,9 +128,8 @@ namespace Project.Api.Services
         }
 
         private async Task<(List<StockPriceResponse> Cached, List<StockIdentifier> NotCached)> TryGetFromCacheAsync(
-            List<StockIdentifier> distinctRequests, DateTime asOf)
+            List<StockIdentifier> distinctRequests, DateOnly targetDate)
         {
-            var targetDate = asOf.Date;
             var markets = distinctRequests.Select(r => r.StockMarket).Distinct().ToList();
             var codes = distinctRequests.Select(r => r.Code).Distinct().ToList();
             var requestKeys = distinctRequests.Select(r => (r.StockMarket, r.Code)).ToHashSet();
@@ -176,15 +180,15 @@ namespace Project.Api.Services
         }
 
         private async Task<(List<StockPriceHistory> AllPrices, List<BatchStockPriceFailure> Failures)> FetchFromApiAsync(
-            List<StockIdentifier> requests, DateTime asOf)
+            List<StockIdentifier> requests, DateOnly targetDate)
         {
             var allPrices = new List<StockPriceHistory>();
             var failures = new List<BatchStockPriceFailure>();
 
             foreach (var request in requests)
             {
-                var startDate = asOf.AddDays(-7);
-                var apiResult = await stockApiClients.GetStockPriceAsync(request.StockMarket, request.Code, startDate, asOf);
+                var startDate = targetDate.AddDays(-7);
+                var apiResult = await stockApiClients.GetStockPriceAsync(request.StockMarket, request.Code, startDate, targetDate);
 
                 if (!apiResult.IsSuccess || apiResult.Value == null)
                 {
@@ -218,22 +222,22 @@ namespace Project.Api.Services
         {
             if (stockPrices.Count == 0) return [];
 
-            var targetDates = stockPrices.Select(s => s.Date.Date).ToHashSet();
-            var markets = stockPrices.Select(s => s.StockMarket).ToHashSet();
-            var codes = stockPrices.Select(r => r.Code).ToHashSet();
-            var requestKeys = stockPrices.Select(r => (r.StockMarket, r.Code, r.Date.Date)).ToHashSet();
+            var targetDates = stockPrices.Select(price => price.Date).ToHashSet();
+            var markets = stockPrices.Select(price => price.StockMarket).ToHashSet();
+            var codes = stockPrices.Select(price => price.Code).ToHashSet();
+            var requestKeys = stockPrices.Select(price => (price.StockMarket, price.Code, price.Date)).ToHashSet();
 
             var hits = (await dbContext.StockPriceHistories
-                .Where(s => markets.Contains(s.StockMarket)
-                         && codes.Contains(s.Code)
-                         && targetDates.Contains(s.Date))
+                .Where(cachedPrice => markets.Contains(cachedPrice.StockMarket)
+                                  && codes.Contains(cachedPrice.Code)
+                                  && targetDates.Contains(cachedPrice.Date))
                 .ToListAsync())
-                .Where(s => requestKeys.Contains((s.StockMarket, s.Code, s.Date.Date)))
+                .Where(cachedPrice => requestKeys.Contains((cachedPrice.StockMarket, cachedPrice.Code, cachedPrice.Date)))
                 .ToList();
 
-            var hitKeys = hits.Select(s => (s.StockMarket, s.Code, s.Date.Date)).ToHashSet();
+            var hitKeys = hits.Select(cachedPrice => (cachedPrice.StockMarket, cachedPrice.Code, cachedPrice.Date)).ToHashSet();
             var notCached = stockPrices
-                .Where(r => !hitKeys.Contains((r.StockMarket, r.Code, r.Date.Date)))
+                .Where(price => !hitKeys.Contains((price.StockMarket, price.Code, price.Date)))
                 .ToList();
 
             return notCached;

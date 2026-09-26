@@ -49,14 +49,14 @@ public static class PositionCalculator
     /// 計算平均成本（使用 FIFO 先進先出法）
     /// </summary>
     /// <remarks>
-    /// 依買入日期排序，先賣出最早買入的股票，
+    /// 依交易先後排序，先賣出最早買入的股票，
     /// 剩餘持倉的平均成本 = 剩餘買入金額 / 剩餘數量
     /// </remarks>
     /// <param name="transactions">同一檔股票的交易清單</param>
     /// <returns>平均成本，若無持倉則回傳 0</returns>
     public static decimal CalculateAverageCost(IEnumerable<Transaction> transactions)
     {
-        var orderTransactions = transactions.OrderBy(t => t.Date);
+        var orderTransactions = OrderByTradeSequence(transactions);
         var orderBuyTransactions = orderTransactions.Where(t => t.Type == TransactionType.Buy);
         var sellQuantity = orderTransactions.Where(t => t.Type == TransactionType.Sell).Sum(t => t.Quantity);
         var buyQuantity = orderTransactions.Where(t => t.Type == TransactionType.Buy).Sum(t => t.Quantity);
@@ -91,7 +91,7 @@ public static class PositionCalculator
     /// <returns>每筆賣出交易對應的損益清單</returns>
     public static Result<List<RealizedPnLResponse>> CalculateRealizedPnL(IEnumerable<Transaction> transactions)
     {
-        var orderTransactions = transactions.OrderBy(t => t.Date);
+        var orderTransactions = OrderByTradeSequence(transactions);
         var orderBuyTransactions = new Queue<Transaction>(orderTransactions.Where(t => t.Type == TransactionType.Buy));
         var orderSellTransactions = orderTransactions.Where(t => t.Type == TransactionType.Sell).ToList();
 
@@ -145,4 +145,10 @@ public static class PositionCalculator
 
         return Result<List<RealizedPnLResponse>>.Success(result);
     }
+
+    /// <summary>
+    /// 依交易先後排序：先比交易日期，同一天再比 Id
+    /// </summary>
+    private static IOrderedEnumerable<Transaction> OrderByTradeSequence(IEnumerable<Transaction> transactions)
+        => transactions.OrderBy(transaction => transaction.Date).ThenBy(transaction => transaction.Id);
 }

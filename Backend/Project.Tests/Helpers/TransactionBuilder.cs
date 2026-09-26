@@ -20,7 +20,7 @@ public class TransactionBuilder(string stockCode = "2330", StockMarketType marke
     /// <param name="quantity">買入數量</param>
     /// <param name="price">買入價格</param>
     /// <param name="date">交易日期（預設為 2024-01-01 起算）</param>
-    public TransactionBuilder Buy(int quantity, decimal price, DateTime? date = null)
+    public TransactionBuilder Buy(int quantity, decimal price, DateOnly? date = null)
     {
         _transactions.Add(CreateTransaction(TransactionType.Buy, quantity, price, date));
         return this;
@@ -32,7 +32,7 @@ public class TransactionBuilder(string stockCode = "2330", StockMarketType marke
     /// <param name="quantity">賣出數量</param>
     /// <param name="price">賣出價格</param>
     /// <param name="date">交易日期（預設為 2024-01-01 起算）</param>
-    public TransactionBuilder Sell(int quantity, decimal price, DateTime? date = null)
+    public TransactionBuilder Sell(int quantity, decimal price, DateOnly? date = null)
     {
         _transactions.Add(CreateTransaction(TransactionType.Sell, quantity, price, date));
         return this;
@@ -43,7 +43,7 @@ public class TransactionBuilder(string stockCode = "2330", StockMarketType marke
     /// </summary>
     public List<Transaction> Build() => _transactions;
 
-    private Transaction CreateTransaction(TransactionType type, int quantity, decimal price, DateTime? date)
+    private Transaction CreateTransaction(TransactionType type, int quantity, decimal price, DateOnly? date)
     {
         return new Transaction
         {
@@ -54,8 +54,8 @@ public class TransactionBuilder(string stockCode = "2330", StockMarketType marke
             Type = type,
             Quantity = quantity,
             Price = price,
-            Date = date ?? new DateTime(2024, 1, _idCounter),
-            CreatedAt = DateTime.UtcNow
+            Date = date ?? new DateOnly(2024, 1, _idCounter),
+            CreatedAt = DateTimeOffset.UtcNow
         };
     }
 }

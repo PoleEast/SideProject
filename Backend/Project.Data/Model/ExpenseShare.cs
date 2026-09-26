@@ -14,9 +14,9 @@ namespace Project.Data.Model
         /// </summary>
         public decimal Amount { get; set; }
 
-        public DateTime CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-        public DateTime? DeletedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
+        public DateTimeOffset? DeletedAt { get; set; }
 
         public Expense Expense { get; set; } = null!;
         public GroupMember GroupMember { get; set; } = null!;

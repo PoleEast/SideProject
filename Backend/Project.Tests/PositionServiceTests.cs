@@ -35,8 +35,8 @@ public class PositionServiceTests
         // 均價 = (100*500 + 200*600) / 300 = 170000 / 300 ≈ 566.67
         using var context = DbContextTestHelper.CreateContext();
         var transactions = new TransactionBuilder("2330", StockMarketType.TW, userId: 1)
-            .Buy(100, 500m, new DateTime(2024, 1, 1))
-            .Buy(200, 600m, new DateTime(2024, 1, 2))
+            .Buy(100, 500m, new DateOnly(2024, 1, 1))
+            .Buy(200, 600m, new DateOnly(2024, 1, 2))
             .Build();
 
         await DbContextTestHelper.SeedTransactionsAsync(context, 1, transactions);
@@ -65,11 +65,11 @@ public class PositionServiceTests
         using var context = DbContextTestHelper.CreateContext();
 
         var twTransactions = new TransactionBuilder("2330", StockMarketType.TW, userId: 1)
-            .Buy(100, 500m, new DateTime(2024, 1, 1))
+            .Buy(100, 500m, new DateOnly(2024, 1, 1))
             .Build();
 
         var usTransactions = new TransactionBuilder("AAPL", StockMarketType.US, userId: 1)
-            .Buy(50, 150m, new DateTime(2024, 1, 1))
+            .Buy(50, 150m, new DateOnly(2024, 1, 1))
             .Build();
 
         // TransactionBuilder 各自從 Id=1 開始計數，插入前需手動修正避免主鍵冲突
@@ -106,12 +106,12 @@ public class PositionServiceTests
         using var context = DbContextTestHelper.CreateContext();
 
         var twTransactions = new TransactionBuilder("2330", StockMarketType.TW, userId: 1)
-            .Buy(100, 500m, new DateTime(2024, 1, 1))
-            .Sell(100, 550m, new DateTime(2024, 1, 2))
+            .Buy(100, 500m, new DateOnly(2024, 1, 1))
+            .Sell(100, 550m, new DateOnly(2024, 1, 2))
             .Build();
 
         var usTransactions = new TransactionBuilder("AAPL", StockMarketType.US, userId: 1)
-            .Buy(50, 150m, new DateTime(2024, 1, 1))
+            .Buy(50, 150m, new DateOnly(2024, 1, 1))
             .Build();
 
         usTransactions[0].Id = 100;
@@ -135,8 +135,8 @@ public class PositionServiceTests
         // Arrange - 買 50 股，賣 100 股，淨數量為 -50，觸發驗證失敗
         using var context = DbContextTestHelper.CreateContext();
         var transactions = new TransactionBuilder("2330", StockMarketType.TW, userId: 1)
-            .Buy(50, 500m, new DateTime(2024, 1, 1))
-            .Sell(100, 550m, new DateTime(2024, 1, 2))
+            .Buy(50, 500m, new DateOnly(2024, 1, 1))
+            .Sell(100, 550m, new DateOnly(2024, 1, 2))
             .Build();
 
         await DbContextTestHelper.SeedTransactionsAsync(context, 1, transactions);
@@ -175,8 +175,8 @@ public class PositionServiceTests
         // Arrange - 只有買入，沒有賣出交易，損益清單應為空
         using var context = DbContextTestHelper.CreateContext();
         var transactions = new TransactionBuilder("2330", StockMarketType.TW, userId: 1)
-            .Buy(100, 500m, new DateTime(2024, 1, 1))
-            .Buy(200, 600m, new DateTime(2024, 1, 2))
+            .Buy(100, 500m, new DateOnly(2024, 1, 1))
+            .Buy(200, 600m, new DateOnly(2024, 1, 2))
             .Build();
 
         await DbContextTestHelper.SeedTransactionsAsync(context, 1, transactions);
@@ -201,10 +201,10 @@ public class PositionServiceTests
         //                              BuyPrice = (40*500 + 40*600) / 80 = 44000 / 80 = 550
         using var context = DbContextTestHelper.CreateContext();
         var transactions = new TransactionBuilder("2330", StockMarketType.TW, userId: 1)
-            .Buy(100, 500m, new DateTime(2024, 1, 1))
-            .Buy(100, 600m, new DateTime(2024, 1, 2))
-            .Sell(60, 550m, new DateTime(2024, 1, 3))
-            .Sell(80, 650m, new DateTime(2024, 1, 4))
+            .Buy(100, 500m, new DateOnly(2024, 1, 1))
+            .Buy(100, 600m, new DateOnly(2024, 1, 2))
+            .Sell(60, 550m, new DateOnly(2024, 1, 3))
+            .Sell(80, 650m, new DateOnly(2024, 1, 4))
             .Build();
 
         await DbContextTestHelper.SeedTransactionsAsync(context, 1, transactions);
@@ -239,13 +239,13 @@ public class PositionServiceTests
         // 2330 台股：買 100 @ 500, 賣 60 @ 550 → BuyPrice = 500
         // AAPL 美股：買 50 @ 150, 賣 30 @ 180 → BuyPrice = 150
         var twTransactions = new TransactionBuilder("2330", StockMarketType.TW, 1)
-            .Buy(100, 500m, new DateTime(2025, 1, 1))
-            .Sell(60, 550m, new DateTime(2025, 1, 2))
+            .Buy(100, 500m, new DateOnly(2025, 1, 1))
+            .Sell(60, 550m, new DateOnly(2025, 1, 2))
             .Build();
 
         var usTransactions = new TransactionBuilder("AAPL", StockMarketType.US, 1)
-            .Buy(50, 150m, new DateTime(2026, 1, 1))
-            .Sell(30, 180m, new DateTime(2026, 1, 2))
+            .Buy(50, 150m, new DateOnly(2026, 1, 1))
+            .Sell(30, 180m, new DateOnly(2026, 1, 2))
             .Build();
 
         // TransactionBuilder 各自從 Id=1 開始計數，手動調整避免主鍵衝突
@@ -281,8 +281,8 @@ public class PositionServiceTests
         // Arrange - 買 50 股，賣 100 股，淨數量為 -50，觸發驗證失敗
         using var context = DbContextTestHelper.CreateContext();
         var transactions = new TransactionBuilder("2330", StockMarketType.TW, userId: 1)
-            .Buy(50, 500m, new DateTime(2024, 1, 1))
-            .Sell(100, 550m, new DateTime(2024, 1, 2))
+            .Buy(50, 500m, new DateOnly(2024, 1, 1))
+            .Sell(100, 550m, new DateOnly(2024, 1, 2))
             .Build();
 
         await DbContextTestHelper.SeedTransactionsAsync(context, 1, transactions);

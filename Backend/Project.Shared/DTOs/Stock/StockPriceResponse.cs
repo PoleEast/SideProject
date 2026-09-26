@@ -21,6 +21,6 @@ namespace Project.Shared.DTOs.Stock
         public CurrencyType Currency { get; set; }
 
         [Description("日期")]
-        public DateTime Date { get; set; }
+        public DateOnly Date { get; set; }
     }
 }

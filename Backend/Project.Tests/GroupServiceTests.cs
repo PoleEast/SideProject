@@ -70,7 +70,7 @@ public class GroupServiceTests
             Currency = CurrencyType.JPY,
             Amount = 9000m,
             Rate = 0.212345m,
-            Date = new DateTime(2026, 7, 1),
+            Date = new DateOnly(2026, 7, 1),
             CreatedByUserId = MingUserId
         });
         await context.SaveChangesAsync(Ct);
@@ -283,7 +283,7 @@ public class GroupServiceTests
             FromMemberId = amy.Id,
             ToMemberId = ming.Id,
             Amount = 500m,
-            SettledAt = new DateTime(2026, 7, 5),
+            Date = new DateOnly(2026, 7, 5),
             CreatedByUserId = MingUserId
         });
         await context.SaveChangesAsync(Ct);

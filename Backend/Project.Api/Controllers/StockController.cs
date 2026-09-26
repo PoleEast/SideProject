@@ -19,9 +19,9 @@ namespace Project.Api.Controllers
         /// </summary>
         /// <param name="stockMarketType">市場類型：TW=台股, US=美股, JP=日股</param>
         /// <param name="code">股票代碼（如：2330、AAPL、7203）</param>
-        /// <param name="asOf">截至日期（不可大於今天）</param>
+        /// <param name="asOf">截至日期（不可大於今天），可省略</param>
         [HttpGet("latest-price")]
-        public async Task<ActionResult<StockPriceResponse>> GetLatestStockPrice([BindRequired] StockMarketType stockMarketType, [BindRequired, StringLength(10, MinimumLength = 1)] string code, [BindRequired, NotFutureDate] DateTime asOf)
+        public async Task<ActionResult<StockPriceResponse>> GetLatestStockPrice([BindRequired] StockMarketType stockMarketType, [BindRequired, StringLength(10, MinimumLength = 1)] string code, [NotFutureDate] DateOnly? asOf)
         {
             var result = await stockService.GetLatestStockPriceAsync(stockMarketType, code, asOf);
 
@@ -55,9 +55,9 @@ namespace Project.Api.Controllers
         /// 批次查詢多檔股票截至指定日期為止最新的股價，回傳成功與失敗清單
         /// </summary>
         /// <param name="requests">股票清單（市場 + 代碼）</param>
-        /// <param name="asOf">截至日期（不可大於今天）</param>
+        /// <param name="asOf">截至日期（不可大於今天），可省略</param>
         [HttpPost("latest-prices")]
-        public async Task<ActionResult<BatchStockPriceResponse>> GetLatestStockPrices([FromBody, Length(1, 50)] List<StockIdentifier> requests, [FromQuery][BindRequired, NotFutureDate] DateTime asOf)
+        public async Task<ActionResult<BatchStockPriceResponse>> GetLatestStockPrices([FromBody, Length(1, 50)] List<StockIdentifier> requests, [FromQuery][NotFutureDate] DateOnly? asOf)
         {
             var result = await stockService.GetLatestStockPricesAsync(requests, asOf);
 

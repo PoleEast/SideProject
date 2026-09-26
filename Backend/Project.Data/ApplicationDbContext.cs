@@ -203,12 +203,12 @@ namespace Project.Data
                 {
                     if (createdAtProp != null)
                     {
-                        entry.Property("CreatedAt").CurrentValue = DateTime.UtcNow;
+                        entry.Property("CreatedAt").CurrentValue = DateTimeOffset.UtcNow;
                     }
 
                     if (updatedAtProp != null)
                     {
-                        entry.Property("UpdatedAt").CurrentValue = DateTime.UtcNow;
+                        entry.Property("UpdatedAt").CurrentValue = DateTimeOffset.UtcNow;
                     }
                 }
 
@@ -216,7 +216,7 @@ namespace Project.Data
                 {
                     if (updatedAtProp != null)
                     {
-                        entry.Property("UpdatedAt").CurrentValue = DateTime.UtcNow;
+                        entry.Property("UpdatedAt").CurrentValue = DateTimeOffset.UtcNow;
                     }
                 }
 
@@ -225,7 +225,7 @@ namespace Project.Data
                     if (deletedAtProp != null)
                     {
                         entry.State = EntityState.Modified;
-                        entry.Property("DeletedAt").CurrentValue = DateTime.UtcNow;
+                        entry.Property("DeletedAt").CurrentValue = DateTimeOffset.UtcNow;
                     }
                 }
             }

@@ -311,7 +311,7 @@ public class SplitBillDataLayerTests
 
         // Act - ClosedAt 僅影響首頁分區，不限制任何操作
         var group = await context.Groups.SingleAsync(Ct);
-        group.ClosedAt = new DateTime(2026, 7, 10);
+        group.ClosedAt = new DateTimeOffset(2026, 7, 10, 0, 0, 0, TimeSpan.Zero);
         await context.SaveChangesAsync(Ct);
 
         context.Expenses.Add(new Expense
@@ -324,7 +324,7 @@ public class SplitBillDataLayerTests
             Currency = CurrencyType.JPY,
             Amount = 3000m,
             Rate = 0.212345m,
-            Date = new DateTime(2026, 7, 2),
+            Date = new DateOnly(2026, 7, 2),
             CreatedByUserId = SplitBillSeeder.OwnerUserId
         });
         await context.SaveChangesAsync(Ct);

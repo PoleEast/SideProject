@@ -15,10 +15,10 @@ namespace Project.Data.Model
         public decimal Low { get; set; }
         public long Volume { get; set; }
         public CurrencyType Currency { get; set; }
-        public DateTime Date { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-        public DateTime? DeletedAt { get; set; }
+        public DateOnly Date { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
+        public DateTimeOffset? DeletedAt { get; set; }
 
     }
 }

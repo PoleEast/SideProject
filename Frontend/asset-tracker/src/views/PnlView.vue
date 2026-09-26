@@ -134,7 +134,7 @@ const lossCount = computed(
 // ---- Table ----
 
 const columns: DataTableColumns<EnrichedRealizedPnl> = [
-  { title: '日期', key: 'date', render: (row) => row.date.slice(0, 10) },
+  { title: '日期', key: 'date' },
   {
     title: '市場',
     key: 'stockMarket',
@@ -441,7 +441,7 @@ onMounted(loadInitial)
                   </n-text>
                 </div>
                 <n-text depth="3" class="ml-auto text-xs">
-                  {{ record.date.slice(0, 10) }}
+                  {{ record.date }}
                 </n-text>
               </div>
 

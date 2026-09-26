@@ -18,7 +18,7 @@ namespace Project.Shared.DTOs.Position
         public string StockCode { get; set; } = string.Empty;
 
         [Description("交易日期")]
-        public DateTime Date { get; set; }
+        public DateOnly Date { get; set; }
 
         [Description("賣出數量")]
         public int SellQuantity { get; set; }

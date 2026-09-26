@@ -40,7 +40,7 @@ namespace Project.Api
                 .Map(d => d.Low, s => s.Min)
                 .Map(d => d.Volume, s => s.TradingVolume)
                 .Map(d => d.Code, s => s.StockId)
-                .Map(d => d.Date, s => s.Date)
+                .Map(d => d.Date, s => DateOnly.FromDateTime(s.Date))
                 .Ignore(d => d.Id)
                 .Ignore(d => d.Exchange)
                 .Ignore(d => d.Name)
@@ -56,14 +56,14 @@ namespace Project.Api
                 {
                     { Enum.Parse<CurrencyType>(s.TargetCode), s.ConversionRate }
                 })
-                .Map(d => d.Date, s => DateTimeOffset.FromUnixTimeSeconds(s.TimeLastUpdateUnix).UtcDateTime.Date);
+                .Map(d => d.Date, s => DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeSeconds(s.TimeLastUpdateUnix).UtcDateTime));
 
             TypeAdapterConfig<StandardResponse, ExchangeRateResponse>.NewConfig()
                 .Map(d => d.Currency, s => Enum.Parse<CurrencyType>(s.BaseCode))
                 .Map(d => d.ConversionRates, s => s.ConversionRates
                     .Where(kv => Enum.IsDefined(typeof(CurrencyType), kv.Key))
                     .ToDictionary(kv => Enum.Parse<CurrencyType>(kv.Key), kv => kv.Value))
-                .Map(d => d.Date, s => DateTimeOffset.FromUnixTimeSeconds(s.TimeLastUpdateUnix).UtcDateTime.Date);
+                .Map(d => d.Date, s => DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeSeconds(s.TimeLastUpdateUnix).UtcDateTime));
 
             #endregion
 

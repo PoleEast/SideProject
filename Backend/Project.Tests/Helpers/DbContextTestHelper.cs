@@ -50,7 +50,7 @@ public static class DbContextTestHelper
                 Account = $"testuser_{userId}",
                 PasswordHash = "not_used_in_tests",
                 Name = $"測試使用者 {userId}",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTimeOffset.UtcNow
             });
         }
 

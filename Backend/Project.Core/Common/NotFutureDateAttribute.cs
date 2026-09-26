@@ -2,14 +2,17 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Project.Core.Common
 {
+    /// <summary>
+    /// 日期不可晚於 UTC 的今天
+    /// </summary>
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter, AllowMultiple = false)]
     public class NotFutureDateAttribute : ValidationAttribute
     {
         public override bool IsValid(object? value)
         {
-            if (value is DateTime date)
+            if (value is DateOnly date)
             {
-                return date.Date <= DateTime.Today;
+                return date <= DateOnly.FromDateTime(DateTime.UtcNow);
             }
             return true;
         }

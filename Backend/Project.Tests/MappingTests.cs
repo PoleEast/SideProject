@@ -87,7 +87,7 @@ namespace Project.Tests
             var history = stockPrice.Adapt<StockPriceHistory>();
 
             // Assert - 驗證欄位映射
-            Assert.Equal(stockPrice.Date, history.Date);
+            Assert.Equal(new DateOnly(2024, 1, 15), history.Date);
             Assert.Equal(stockPrice.StockId, history.Code);          // StockId → Code
             Assert.Equal(stockPrice.TradingVolume, history.Volume);  // TradingVolume → Volume
             Assert.Equal(stockPrice.Open, history.OpeningPrice);     // Open → OpeningPrice
@@ -108,7 +108,7 @@ namespace Project.Tests
         /// <summary>
         /// 測試 Pair API 回應轉換為匯率回應 DTO
         /// 驗證：單一匯率應包裝為 Dictionary，BaseCode/TargetCode 正確解析為 CurrencyType
-        /// 驗證：Unix 時間戳應正確轉換為 DateTime（只取日期部分）
+        /// 驗證：Unix 時間戳應正確轉換為 UTC 的日期
         /// </summary>
         [Fact(DisplayName = "Pair匯率回應→匯率DTO：單一匯率包裝為Dictionary")]
         public void PairResponse_To_ExchangeRateResponse_ShouldMapCorrectly()
@@ -135,7 +135,7 @@ namespace Project.Tests
             Assert.Equal(0.032m, response.ConversionRates[CurrencyType.USD]);
 
             // TimeLastUpdateUnix 透過 DateTimeOffset.FromUnixTimeSeconds 轉換後取日期
-            var expectedDate = new DateTime(2024, 1, 15);
+            var expectedDate = new DateOnly(2024, 1, 15);
             Assert.Equal(expectedDate, response.Date);
         }
 
@@ -177,7 +177,7 @@ namespace Project.Tests
             // 不支援的幣別不應存在
             Assert.DoesNotContain(response.ConversionRates, kv => kv.Key.ToString() == "EUR");
 
-            var expectedDate = new DateTime(2024, 1, 15);
+            var expectedDate = new DateOnly(2024, 1, 15);
             Assert.Equal(expectedDate, response.Date);
         }
 
@@ -389,12 +389,12 @@ namespace Project.Tests
                 UserId = 100,                          // 不會被映射到回應
                 StockMarket = StockMarketType.TW,
                 StockCode = "2330",
-                Date = new DateTime(2024, 1, 15),
+                Date = new DateOnly(2024, 1, 15),
                 Type = TransactionType.Buy,
                 Quantity = 1000,
                 Price = 580.00m,
                 Remark = "定期定額",
-                CreatedAt = new DateTime(2024, 1, 15, 10, 30, 0),
+                CreatedAt = new DateTimeOffset(2024, 1, 15, 10, 30, 0, TimeSpan.Zero),
                 UpdatedAt = null,                      // 不會被映射到回應
                 DeletedAt = null                       // 不會被映射到回應
             };

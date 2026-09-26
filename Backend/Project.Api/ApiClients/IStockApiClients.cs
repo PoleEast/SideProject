@@ -7,7 +7,7 @@ namespace Project.Api.ApiClients
 {
     public interface IStockApiClients
     {
-        public Task<Result<List<StockPriceHistory>>> GetStockPriceAsync(StockMarketType market, string code, DateTime startDate, DateTime endDate);
+        public Task<Result<List<StockPriceHistory>>> GetStockPriceAsync(StockMarketType market, string code, DateOnly startDate, DateOnly endDate);
 
         public Task<Result<StockInfo>> GetStockInfoAsync(StockMarketType market, string code);
     }

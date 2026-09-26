@@ -46,7 +46,7 @@ namespace Project.Api.ApiClients
             return Result<StockInfo>.Success(stockInfo);
         }
 
-        public async Task<Result<List<StockPriceHistory>>> GetStockPriceAsync(StockMarketType market, string code, DateTime startDate, DateTime endDate)
+        public async Task<Result<List<StockPriceHistory>>> GetStockPriceAsync(StockMarketType market, string code, DateOnly startDate, DateOnly endDate)
         {
             List<StockPriceHistory>? result = null;
             StockInfo? stockInfo = null;
@@ -112,7 +112,7 @@ namespace Project.Api.ApiClients
             };
         }
 
-        private async Task<List<StockPrice>> FetchStockPriceAsync(StockMarketType market, string code, DateTime startDate, DateTime endDate)
+        private async Task<List<StockPrice>> FetchStockPriceAsync(StockMarketType market, string code, DateOnly startDate, DateOnly endDate)
         {
             var queryParams = new Dictionary<string, string?>()
             {

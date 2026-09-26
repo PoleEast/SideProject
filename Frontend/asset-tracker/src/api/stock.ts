@@ -11,14 +11,12 @@ const API_URL = `${BASE_URL}/stock`
 
 export const getLatestStockPrices = async (
   datas: StockIdentifier[],
-  asOf: Date,
 ): Promise<Result<BatchStockPriceResponse>> => {
   if (datas.length === 0) {
     return { ok: true, data: { succeeded: [], failed: [] } }
   }
 
-  const params = new URLSearchParams({ asOf: asOf.toISOString().split('T')[0]! })
-  const response = await authFetch(`${API_URL}/latest-prices?${params}`, {
+  const response = await authFetch(`${API_URL}/latest-prices`, {
     method: 'POST',
     body: JSON.stringify(datas),
   })

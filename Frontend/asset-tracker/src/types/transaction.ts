@@ -12,5 +12,5 @@ export interface TransactionRequest {
 
 export interface TransactionResponse extends TransactionRequest {
   id: number
-  createdAt: Date
+  createdAt: string
 }

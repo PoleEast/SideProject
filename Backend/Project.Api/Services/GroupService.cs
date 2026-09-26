@@ -245,7 +245,7 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
             return Result<GroupResponse>.Success(group.Adapt<GroupResponse>());
         }
 
-        group.ClosedAt = shouldBeClosed ? DateTime.UtcNow : null;
+        group.ClosedAt = shouldBeClosed ? DateTimeOffset.UtcNow : null;
 
         dbContext.Add(new ActivityLog
         {

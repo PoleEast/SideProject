@@ -118,7 +118,7 @@ const openEdit = (transaction: TransactionResponse) => {
 // ---- Table columns（桌機版）----
 
 const columns: DataTableColumns<TransactionResponse> = [
-  { title: '日期', key: 'date', width: 110, render: (row) => row.date.slice(0, 10) },
+  { title: '日期', key: 'date', width: 110 },
   {
     title: '市場',
     key: 'market',
@@ -365,7 +365,7 @@ onMounted(async () => {
 
                 <!-- 卡片內容 -->
                 <div class="flex items-center justify-between gap-2 text-sm">
-                  <n-text depth="3" class="shrink-0">{{ transaction.date.slice(0, 10) }}</n-text>
+                  <n-text depth="3" class="shrink-0">{{ transaction.date }}</n-text>
                   <n-text class="min-w-0 text-right">
                     <span class="text-xs opacity-70">
                       {{ transaction.quantity }} 股 × ${{ transaction.price }} =

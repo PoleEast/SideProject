@@ -26,16 +26,16 @@ namespace Project.Data.Model
         /// </summary>
         public decimal Amount { get; set; }
 
-        public DateTime SettledAt { get; set; }
+        public DateOnly Date { get; set; }
 
         /// <summary>
         /// 記錄者 - 僅供顯示，不作為權限判斷依據
         /// </summary>
         public int CreatedByUserId { get; set; }
 
-        public DateTime CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-        public DateTime? DeletedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
+        public DateTimeOffset? DeletedAt { get; set; }
 
         public Group Group { get; set; } = null!;
         public GroupMember FromMember { get; set; } = null!;

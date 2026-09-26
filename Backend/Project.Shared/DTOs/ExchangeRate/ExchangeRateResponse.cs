@@ -6,6 +6,6 @@ namespace Project.Shared.DTOs.ExchangeRate
     {
         public CurrencyType Currency { get; set; }
         public Dictionary<CurrencyType, decimal> ConversionRates { get; set; } = [];
-        public DateTime Date { get; set; } = DateTime.UtcNow;
+        public DateOnly Date { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
     }
 }

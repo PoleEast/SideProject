@@ -9,7 +9,7 @@ namespace Project.Data.Model
         public string PublicId { get; set; } = string.Empty;
         public AvatarType Type { get; set; }
         public bool IsCurrent { get; set; }
-        public DateTime CreatedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
 
         public User User { get; set; } = null!;
     }

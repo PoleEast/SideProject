@@ -13,7 +13,7 @@ namespace Project.Shared.DTOs.Transaction
         public StockMarketType? Market { get; set; }
 
         [Description("交易日期")]
-        public DateTime? Date { get; set; }
+        public DateOnly? Date { get; set; }
 
         [Description("交易類型")]
         public TransactionType? Type { get; set; }

@@ -19,7 +19,7 @@ namespace Project.Shared.DTOs.Transaction
 
         [Description("交易日期")]
         [Required(ErrorMessage = "請傳入交易日期")]
-        public DateTime Date { get; set; }
+        public DateOnly Date { get; set; }
 
         [Description("交易類型")]
         [Required(ErrorMessage = "請傳入交易類型")]

@@ -204,7 +204,6 @@ const loadInitial = async () => {
         stockMarket: position.stockMarket,
         code: position.stockCode,
       })),
-      new Date(),
     ),
   )
   if (priceResult.ok) stockPrices.value = priceResult.data.succeeded

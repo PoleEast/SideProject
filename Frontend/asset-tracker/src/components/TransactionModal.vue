@@ -27,6 +27,7 @@ import { create, updateTransaction } from '@/api/transaction'
 import { marketColors, transactionTypeColors } from '@/utils/colors'
 import { marketCurrencyMap } from '@/constants/common'
 import { useApiToast } from '@/composables/useApiToast'
+import { getTodayDate } from '@/utils/dateHelpers'
 
 // ---- Setup ----
 
@@ -50,7 +51,7 @@ const loading = ref(false)
 const formData = reactive({
   stockCode: '',
   market: 'TW' as MarketType,
-  date: Date.now() as number | null,
+  date: getTodayDate() as string | null,
   type: null as string | null,
   price: null as number | null,
   quantity: null as number | null,
@@ -61,7 +62,7 @@ const rules: FormRules = {
   stockCode: [{ required: true, message: '請輸入股票代碼', trigger: ['blur', 'input'] }],
   market: [{ required: true, message: '請選擇交易市場', trigger: ['blur', 'change'] }],
   date: [
-    { required: true, type: 'number', message: '請選擇交易日期', trigger: ['blur', 'change'] },
+    { required: true, type: 'string', message: '請選擇交易日期', trigger: ['blur', 'change'] },
   ],
   type: [{ required: true, message: '請選擇交易類型', trigger: ['blur', 'change'] }],
   price: [{ required: true, type: 'number', message: '請輸入價格', trigger: ['blur', 'input'] }],
@@ -103,10 +104,7 @@ const handleSubmit = async () => {
   }
   loading.value = true
   try {
-    const payload = {
-      ...formData,
-      date: new Date(formData.date as number).toISOString(),
-    } as TransactionRequest
+    const payload = { ...formData } as TransactionRequest
     const result = await handle(
       isEdit.value ? updateTransaction(props.transaction!.id, payload) : create(payload),
     )
@@ -128,7 +126,7 @@ watch(
     if (val) {
       formData.stockCode = val.stockCode
       formData.market = val.market
-      formData.date = new Date(val.date).getTime()
+      formData.date = val.date
       formData.type = val.type
       formData.price = val.price
       formData.quantity = val.quantity
@@ -136,7 +134,7 @@ watch(
     } else {
       formData.stockCode = ''
       formData.market = 'TW'
-      formData.date = Date.now()
+      formData.date = getTodayDate()
       formData.type = null
       formData.price = null
       formData.quantity = null
@@ -260,7 +258,8 @@ watch(
         <!-- 交易日期 -->
         <n-form-item label="交易日期" path="date">
           <n-date-picker
-            v-model:value="formData.date"
+            v-model:formatted-value="formData.date"
+            value-format="yyyy-MM-dd"
             type="date"
             placeholder="請選擇日期"
             class="w-full"

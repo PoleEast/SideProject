@@ -52,7 +52,7 @@ namespace Project.Core.Auth
                 return Result<User>.Failure(ResultCode.Unauthorized, "帳號或密碼錯誤");
             }
 
-            user.LastLoginAt = DateTime.UtcNow;
+            user.LastLoginAt = DateTimeOffset.UtcNow;
 
             try
             {

@@ -197,10 +197,6 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
             return Result.Failure(ResultCode.Forbidden, "只有群組擁有者可以刪除群組");
         }
 
-        string summary = $"刪除了群組「{group.Name}」";
-
-        // 順序不可顛倒：Remove 當下 EF 會掃描追蹤中所有外鍵指向此群組、且不可為 null 的實體，
-        // 判定關聯被切斷而拋錯（本專案的關聯皆為 Restrict，不做串連刪除）。
         dbContext.Groups.Remove(group);
 
         // 動態會隨群組一起被 query filter 濾掉，但資料留在 DB，事後仍查得到是誰刪的
@@ -209,7 +205,7 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
             GroupId = groupId,
             ActorUserId = userId,
             ActionType = ActivityActionType.GroupDeleted,
-            Summary = summary
+            Summary = $"刪除了群組「{group.Name}」"
         });
 
         try

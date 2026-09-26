@@ -411,10 +411,6 @@ public class GroupServiceTests
         var service = CreateService(context);
         var created = await service.CreateGroupAsync(MingUserId, NewGroupRequest());
 
-        // 模擬新的一次請求：實際執行時每個請求各有獨立的 DbContext，刪除只會載入群組本身。
-        // 不清空的話成員與建立動態仍被追蹤，Remove 會判定它們的必要關聯遭切斷而拋錯。
-        context.ChangeTracker.Clear();
-
         // Act
         var result = await service.DeleteGroupAsync(created.Value!.Id, MingUserId);
 

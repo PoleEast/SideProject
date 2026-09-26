@@ -1,11 +1,23 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Project.Data.Model;
 using Project.Shared.Types;
 
 namespace Project.Data
 {
-    public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
+    public class ApplicationDbContext : DbContext
     {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+        {
+            // 軟刪除靠 SaveChangesAsync 把 Deleted 改回 Modified，但 EF 預設在 Remove() 當下就處理關聯：
+            // 追蹤中的子資料若是必要外鍵會拋錯，可為 null 的外鍵則被清空並寫回資料庫。
+            // 延到存檔時才處理，軟刪除便搶在前面完成，EF 屆時已看不到被刪除的父實體。
+            // 前提是每條關聯都明確設為 Restrict（EF 對必要外鍵的預設是 Cascade）：
+            // Cascade 的子資料會在存檔時才被標為刪除，繞過軟刪除直接從資料庫消失
+            ChangeTracker.CascadeDeleteTiming = CascadeTiming.OnSaveChanges;
+            ChangeTracker.DeleteOrphansTiming = CascadeTiming.OnSaveChanges;
+        }
+
         public DbSet<User> Users { get; set; }
         public DbSet<Avatar> Avatars { get; set; }
         public DbSet<Transaction> Transactions { get; set; }
@@ -48,7 +60,8 @@ namespace Project.Data
 
                 entity.HasQueryFilter(e => e.DeletedAt == null && e.User.DeletedAt == null);
 
-                entity.HasOne(e => e.User).WithMany(u => u.Transactions).HasForeignKey(u => u.UserId);
+                entity.HasOne(e => e.User).WithMany(u => u.Transactions).HasForeignKey(u => u.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Avatar>(entity =>
@@ -57,7 +70,8 @@ namespace Project.Data
 
                 entity.HasQueryFilter(e => e.User.DeletedAt == null);
 
-                entity.HasOne(e => e.User).WithMany(u => u.Avatars).HasForeignKey(u => u.UserId);
+                entity.HasOne(e => e.User).WithMany(u => u.Avatars).HasForeignKey(u => u.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<StockPriceHistory>(entity =>

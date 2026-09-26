@@ -105,9 +105,7 @@ public static class SplitBillSeeder
 
         await context.SaveChangesAsync();
 
-        // 清空追蹤，讓後續的 Remove() 只帶著單一實體進 ChangeTracker。
-        // 所有關聯都是 Restrict，若子實體仍被追蹤，EF 會試圖切斷關聯而非串連刪除，
-        // 撞上不可為 null 的外鍵而拋錯。實際查詢也只會載入要刪的那一筆。
+        // 清空追蹤，讓每個測試自己決定哪些資料在 ChangeTracker 中
         context.ChangeTracker.Clear();
     }
 }

@@ -165,6 +165,79 @@ public class SplitBillDataLayerTests
 
     #endregion
 
+    #region 刪除不受追蹤狀態影響
+
+    [Fact(DisplayName = "軟刪群組：子資料正被追蹤時仍可刪除")]
+    public async Task SoftDeleteGroup_WithTrackedDependents_Succeeds()
+    {
+        // Arrange - 同一個請求先前已把成員與動態載入追蹤（例如某次查詢帶了 Include）
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+
+        var group = await context.Groups
+            .Include(g => g.GroupMembers)
+            .Include(g => g.ActivityLogs)
+            .SingleAsync(Ct);
+
+        // Act
+        context.Groups.Remove(group);
+        await context.SaveChangesAsync(Ct);
+
+        // Assert
+        Assert.Empty(await context.Groups.ToListAsync(Ct));
+        Assert.Empty(await context.GroupMembers.ToListAsync(Ct));
+    }
+
+    [Fact(DisplayName = "軟刪群組：先寫動態再 Remove 也能成功")]
+    public async Task SoftDeleteGroup_LogAddedBeforeRemove_Succeeds()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+
+        var group = await context.Groups.SingleAsync(Ct);
+
+        // Act - 呼叫順序與 GroupService 相反
+        context.ActivityLogs.Add(new ActivityLog
+        {
+            Id = 2,
+            GroupId = SplitBillSeeder.GroupId,
+            ActorUserId = SplitBillSeeder.OwnerUserId,
+            ActionType = ActivityActionType.GroupDeleted,
+            Summary = "刪除了群組「日本旅遊」"
+        });
+        context.Groups.Remove(group);
+        await context.SaveChangesAsync(Ct);
+
+        // Assert - 動態有寫入，只是隨群組一起被 query filter 濾掉
+        Assert.Empty(await context.Groups.ToListAsync(Ct));
+        Assert.True(await context.ActivityLogs
+            .IgnoreQueryFilters()
+            .AnyAsync(l => l.ActionType == ActivityActionType.GroupDeleted, Ct));
+    }
+
+    [Fact(DisplayName = "軟刪花費：指向它的動態正被追蹤時，TargetExpenseId 不被清空")]
+    public async Task SoftDeleteExpense_TrackedLogKeepsTargetExpenseId()
+    {
+        // Arrange - TargetExpenseId 是可為 null 的外鍵，被清空時不會拋任何例外
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+
+        await context.ActivityLogs.LoadAsync(Ct);
+        var expense = await context.Expenses.SingleAsync(Ct);
+
+        // Act
+        context.Expenses.Remove(expense);
+        await context.SaveChangesAsync(Ct);
+
+        // Assert - 清空追蹤後重新讀取，確認的是資料庫裡的值
+        context.ChangeTracker.Clear();
+        var log = await context.ActivityLogs.SingleAsync(Ct);
+        Assert.Equal(SplitBillSeeder.ExpenseId, log.TargetExpenseId);
+    }
+
+    #endregion
+
     #region 自動時間戳
 
     [Fact(DisplayName = "新增資料：自動填入 CreatedAt 與 UpdatedAt")]

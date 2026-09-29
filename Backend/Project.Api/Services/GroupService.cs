@@ -79,7 +79,7 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
     /// </summary>
     public async Task<Result<GroupResponse>> GetGroupByIdAsync(int groupId, int userId)
     {
-        var group = await FindAccessibleGroupAsync(groupId, userId);
+        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
 
         if (group == null)
         {
@@ -99,7 +99,7 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
     /// </remarks>
     public async Task<Result<GroupResponse>> UpdateGroupAsync(int groupId, int userId, UpdateGroupRequest request)
     {
-        var group = await FindAccessibleGroupAsync(groupId, userId);
+        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
         
         if (group == null)
         {
@@ -185,7 +185,7 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
     /// </remarks>
     public async Task<Result> DeleteGroupAsync(int groupId, int userId)
     {
-        var group = await FindAccessibleGroupAsync(groupId, userId);
+        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
 
         if (group == null)
         {
@@ -230,7 +230,7 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
     /// </remarks>
     public async Task<Result<GroupResponse>> SetGroupClosedAsync(int groupId, int userId, SetGroupClosedRequest request)
     {
-        var group = await FindAccessibleGroupAsync(groupId, userId);
+        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
 
         if (group == null)
         {
@@ -279,7 +279,7 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
     /// </remarks>
     public async Task<Result<GroupResponse>> ResetInviteCodeAsync(int groupId, int userId)
     {
-        var group = await FindAccessibleGroupAsync(groupId, userId);
+        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
 
         if (group == null)
         {
@@ -308,7 +308,4 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
 
         return Result<GroupResponse>.Success(group.Adapt<GroupResponse>());
     }
-
-    private async Task<Group?> FindAccessibleGroupAsync(int groupId, int userId)
-        => await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(group => group.Id == groupId);
 }

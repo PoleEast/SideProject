@@ -33,6 +33,8 @@ namespace Project.Shared.Types
         [Description("重啟群組")]
         GroupReopened,
         [Description("重置邀請碼")]
-        InviteCodeReset
+        InviteCodeReset,
+        [Description("成員改名")]
+        MemberRenamed
     }
 }

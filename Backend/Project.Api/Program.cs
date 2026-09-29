@@ -97,6 +97,8 @@ builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<ExchangeRateService>();
 builder.Services.AddScoped<PositionService>();
 builder.Services.AddScoped<GroupService>();
+builder.Services.AddScoped<SettlementService>();
+builder.Services.AddScoped<GroupMemberService>();
 
 builder.Services.AddSharedAuth(builder.Configuration);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

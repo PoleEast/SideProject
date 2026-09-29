@@ -3,11 +3,10 @@ using Project.Shared.DTOs.SplitBill;
 namespace Project.Api.Helpers;
 
 /// <summary>
-/// 結算計算器 - 將所有分錄收斂成兩兩淨額
+/// 結算計算器: 將所有分錄收斂成兩兩淨額
 /// </summary>
 /// <remarks>
-/// 只吃純數字，不接觸匯率 API 與 DB（見 ADR 20260731_SplitBill匯率於建立花費時鎖入）。
-/// 結算採兩兩淨額而非最小化轉帳（見 ADR 20260731_結算採兩兩淨額而非最小化轉帳）。
+/// 結算採兩兩淨額而非最小化轉帳
 /// </remarks>
 public static class SettlementCalculator
 {
@@ -18,11 +17,11 @@ public static class SettlementCalculator
     /// 不變量：所有淨額的收支加總必為 0（每一筆金額都同時是某人的應付與另一人的應收）。
     /// </remarks>
     /// <param name="entries">分錄，須以基準幣計價。已還款以反向分錄表達</param>
-    /// <returns>所有非零的兩兩淨額，<c>Amount</c> 恆為正；淨額為 0 的組合不列入</returns>
+    /// <returns>淨額為 0 的組合不列入</returns>
     public static List<MemberBalance> CalculateBalances(IEnumerable<BalanceEntry> entries)
     {
         var netByPair = entries
-            // 自己欠自己沒有對象可抵銷，不排除會輸出 MemberBalance(X, X)
+            // 自己欠自己沒有對象可抵銷
             .Where(entry => entry.DebtorMemberId != entry.CreditorMemberId)
             .Select(ToSignedEntry)
             .GroupBy(signed => signed.Pair)
@@ -36,6 +35,20 @@ public static class SettlementCalculator
             .Select(pairNet => ToMemberBalance(pairNet.Pair, pairNet.Net))
             .ToList();
     }
+
+    /// <summary>
+    /// 把兩兩淨額四捨五入到基準幣的最小單位
+    /// </summary>
+    /// <param name="balances">兩兩淨額，須以基準幣計價尚未四捨五入</param>
+    /// <param name="decimals">基準幣最小單位的小數位數</param>
+    /// <remarks>
+    /// 必須明確指定 <see cref="MidpointRounding.AwayFromZero"/>，.NET 預設為銀行家捨入
+    /// </remarks>
+    /// <returns>四捨五入後仍非零的兩兩淨額；歸 0 的組合不列入</returns>
+    public static List<MemberBalance> RoundToUnit(IEnumerable<MemberBalance> balances, int decimals) =>
+        balances.Select(balance => balance with { Amount = Math.Round(balance.Amount, decimals, MidpointRounding.AwayFromZero) })
+                .Where(balance => balance.Amount != 0)
+                .ToList();
 
     /// <summary>
     /// 把分錄的方向編碼成正負號

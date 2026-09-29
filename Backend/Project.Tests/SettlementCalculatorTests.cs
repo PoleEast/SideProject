@@ -391,4 +391,85 @@ public class SettlementCalculatorTests
     }
 
     #endregion
+
+    #region 捨入到基準幣最小單位
+
+    [Fact(DisplayName = "捨入：不足半個最小單位的零頭歸 0，該組不列出")]
+    public void RoundToUnit_LessThanHalfUnit_IsExcluded()
+    {
+        // Arrange - 欠 318.5175，照畫面還了 319，剩下小明反欠 0.4825
+        MemberBalance[] balances = [new(DebtorMemberId: 1, CreditorMemberId: 3, Amount: 0.4825m)];
+
+        // Act
+        var result = SettlementCalculator.RoundToUnit(balances, decimals: 0);
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    [Fact(DisplayName = "捨入：剛好半個最小單位時進位（四捨五入，非銀行家捨入）")]
+    public void RoundToUnit_ExactlyHalfUnit_RoundsAwayFromZero()
+    {
+        // Arrange - ¥500 × 0.213 = 106.5；銀行家捨入會捨成偶數 106
+        MemberBalance[] balances = [new(DebtorMemberId: 2, CreditorMemberId: 1, Amount: 106.5m)];
+
+        // Act
+        var result = SettlementCalculator.RoundToUnit(balances, decimals: 0);
+
+        // Assert
+        var balance = Assert.Single(result);
+        Assert.Equal(107m, balance.Amount);
+    }
+
+    [Fact(DisplayName = "捨入：相抵後再捨入，結果只看金額大小，與誰的 Id 較小無關")]
+    public void CalculateThenRound_SwappedMemberIds_RoundTheSame()
+    {
+        // Arrange - 同樣相欠 0.5，方向相反。相抵時以正負號表示方向，
+        // 捨入若改成作用在帶號淨額上，無條件進位會讓其中一個方向歸 0
+        BalanceEntry[] lowOwesHigh = [new(DebtorMemberId: 1, CreditorMemberId: 3, Amount: 0.5m)];
+        BalanceEntry[] highOwesLow = [new(DebtorMemberId: 3, CreditorMemberId: 1, Amount: 0.5m)];
+
+        // Act
+        var lowResult = SettlementCalculator.RoundToUnit(SettlementCalculator.CalculateBalances(lowOwesHigh), decimals: 0);
+        var highResult = SettlementCalculator.RoundToUnit(SettlementCalculator.CalculateBalances(highOwesLow), decimals: 0);
+
+        // Assert
+        Assert.Equal(new MemberBalance(1, 3, 1m), Assert.Single(lowResult));
+        Assert.Equal(new MemberBalance(3, 1, 1m), Assert.Single(highResult));
+    }
+
+    [Fact(DisplayName = "捨入：小數位數為 2 時保留到分")]
+    public void RoundToUnit_TwoDecimals_KeepsCents()
+    {
+        // Arrange
+        MemberBalance[] balances = [new(DebtorMemberId: 2, CreditorMemberId: 1, Amount: 137.035m)];
+
+        // Act
+        var result = SettlementCalculator.RoundToUnit(balances, decimals: 2);
+
+        // Assert
+        Assert.Equal(new MemberBalance(2, 1, 137.04m), Assert.Single(result));
+    }
+
+    [Fact(DisplayName = "捨入：保留非零的組合，其餘歸 0 者濾掉")]
+    public void RoundToUnit_MixedBalances_KeepsOnlyNonZero()
+    {
+        // Arrange
+        MemberBalance[] balances =
+        [
+            new(DebtorMemberId: 2, CreditorMemberId: 1, Amount: 137.035m),
+            new(DebtorMemberId: 1, CreditorMemberId: 3, Amount: 0.035m),
+            new(DebtorMemberId: 3, CreditorMemberId: 2, Amount: 636.5m),
+        ];
+
+        // Act
+        var result = SettlementCalculator.RoundToUnit(balances, decimals: 0);
+
+        // Assert
+        Assert.Equal(
+            [new MemberBalance(2, 1, 137m), new MemberBalance(3, 2, 637m)],
+            result);
+    }
+
+    #endregion
 }

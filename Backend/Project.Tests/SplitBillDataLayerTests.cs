@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Project.Data.Model;
+using Project.Shared.Constants;
 using Project.Shared.Types;
 using Project.Tests.Helpers;
 
@@ -7,7 +8,7 @@ namespace Project.Tests;
 
 /// <summary>
 /// Split Bill 資料層測試
-/// 使用 InMemory 資料庫，驗證軟刪除、query filter 串接與自動時間戳的外部可觀察行為
+/// 使用 InMemory 資料庫，驗證軟刪除、query filter 串接、自動時間戳與字串長度上限的外部可觀察行為
 /// </summary>
 /// <remarks>
 /// 唯一索引與欄位精度不在此驗證：InMemory provider 不強制唯一約束、也不套用 HasPrecision，
@@ -332,6 +333,42 @@ public class SplitBillDataLayerTests
         // Assert
         Assert.Single(await context.Groups.ToListAsync(Ct));
         Assert.Equal(2, await context.Expenses.CountAsync(Ct));
+    }
+
+    #endregion
+
+    #region 字串長度上限
+
+    [Fact(DisplayName = "成員顯示名稱：剛好上限時可存檔")]
+    public async Task GroupMemberDisplayName_AtMaxLength_Saves()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        string longestName = new('名', MaxLengths.GroupMemberDisplayName);
+
+        // Act
+        context.GroupMembers.Add(new GroupMember { GroupId = SplitBillSeeder.GroupId, DisplayName = longestName });
+        await context.SaveChangesAsync(Ct);
+
+        // Assert
+        Assert.True(await context.GroupMembers.AnyAsync(member => member.DisplayName == longestName, Ct));
+    }
+
+    [Fact(DisplayName = "成員顯示名稱：超過上限時存檔拋出 DbUpdateException")]
+    public async Task GroupMemberDisplayName_OverMaxLength_ThrowsDbUpdateException()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        context.GroupMembers.Add(new GroupMember
+        {
+            GroupId = SplitBillSeeder.GroupId,
+            DisplayName = new string('名', MaxLengths.GroupMemberDisplayName + 1)
+        });
+
+        // Act & Assert - 守住長度檢查本身：少了它，Service 的「最長輸入仍可成功」測試在檢查被拿掉後照樣會過
+        await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync(Ct));
     }
 
     #endregion

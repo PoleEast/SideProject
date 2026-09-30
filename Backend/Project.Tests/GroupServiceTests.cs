@@ -4,6 +4,7 @@ using Project.Api.Helpers;
 using Project.Api.Services;
 using Project.Data;
 using Project.Data.Model;
+using Project.Shared.Constants;
 using Project.Shared.DTOs.SplitBill;
 using Project.Shared.Types;
 using Project.Tests.Helpers;
@@ -162,6 +163,42 @@ public class GroupServiceTests
         // Assert
         Assert.Equal(ResultCode.Unauthorized, result.Code);
         Assert.Empty(await context.Groups.ToListAsync(Ct));
+    }
+
+    [Fact(DisplayName = "建立群組：User 名稱用到上限時仍能建立，擁有者的顯示名稱等於 User 名稱")]
+    public async Task CreateGroup_LongestUserName_OwnerDisplayNameEqualsUserName()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        string longestUserName = new('名', MaxLengths.UserName);
+        context.Users.Add(new User { Id = MingUserId, Account = "ming", PasswordHash = "not_used", Name = longestUserName });
+        await context.SaveChangesAsync(Ct);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.CreateGroupAsync(MingUserId, NewGroupRequest());
+
+        // Assert - 顯示名稱取自 User 名稱，User 名稱上限調到超過顯示名稱上限時會存檔失敗
+        Assert.Equal(ResultCode.Success, result.Code);
+        var member = await context.GroupMembers.SingleAsync(Ct);
+        Assert.Equal(longestUserName, member.DisplayName);
+    }
+
+    [Fact(DisplayName = "建立群組：群組名稱用到上限時仍能建立，並寫入建立群組的動態")]
+    public async Task CreateGroup_LongestName_WritesActivityLog()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SeedUsersAsync(context);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.CreateGroupAsync(MingUserId, NewGroupRequest(new string('名', MaxLengths.GroupName)));
+
+        // Assert
+        Assert.Equal(ResultCode.Success, result.Code);
+        var log = await context.ActivityLogs.SingleAsync(Ct);
+        Assert.Equal(ActivityActionType.GroupCreated, log.ActionType);
     }
 
     #endregion
@@ -378,6 +415,32 @@ public class GroupServiceTests
         var log = await context.ActivityLogs
             .SingleAsync(activityLog => activityLog.ActionType == ActivityActionType.GroupUpdated, Ct);
         Assert.Equal("修改了群組描述", log.Summary);
+    }
+
+    [Fact(DisplayName = "更新群組：名稱與描述用到上限、同時變更基準幣，仍能成功並寫入動態")]
+    public async Task UpdateGroup_LongestValuesOnAllFields_WritesActivityLog()
+    {
+        // Arrange - 舊名稱也用到上限，動態敘述「由…改為…」的兩端才都是最長
+        using var context = DbContextTestHelper.CreateContext();
+        await SeedUsersAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateGroupAsync(MingUserId, NewGroupRequest(new string('舊', MaxLengths.GroupName)));
+
+        var request = new UpdateGroupRequest
+        {
+            Name = new string('新', MaxLengths.GroupName),
+            BaseCurrency = CurrencyType.JPY,
+            Description = new string('描', MaxLengths.GroupDescription)
+        };
+
+        // Act
+        var result = await service.UpdateGroupAsync(created.Value!.Id, MingUserId, request);
+
+        // Assert
+        Assert.Equal(ResultCode.Success, result.Code);
+        Assert.Single(await context.ActivityLogs
+            .Where(activityLog => activityLog.ActionType == ActivityActionType.GroupUpdated)
+            .ToListAsync(Ct));
     }
 
     #endregion

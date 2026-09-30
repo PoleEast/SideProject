@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Project.Data.Model;
+using Project.Shared.Constants;
 using Project.Shared.Types;
 
 namespace Project.Data
@@ -45,8 +46,8 @@ namespace Project.Data
 
             modelBuilder.Entity<User>(entity =>
             {
-                entity.Property(e => e.Account).HasMaxLength(32);
-                entity.Property(e => e.Name).HasMaxLength(32);
+                entity.Property(e => e.Account).HasMaxLength(MaxLengths.UserAccount);
+                entity.Property(e => e.Name).HasMaxLength(MaxLengths.UserName);
 
                 entity.HasIndex(e => e.Account).IsUnique();
 
@@ -56,7 +57,7 @@ namespace Project.Data
             modelBuilder.Entity<Transaction>(entity =>
             {
                 entity.Property(e => e.Price).HasPrecision(18, 2);
-                entity.Property(e => e.Remark).HasMaxLength(200);
+                entity.Property(e => e.Remark).HasMaxLength(MaxLengths.TransactionRemark);
 
                 entity.HasQueryFilter(e => e.DeletedAt == null && e.User.DeletedAt == null);
 
@@ -88,9 +89,9 @@ namespace Project.Data
 
             modelBuilder.Entity<Group>(entity =>
             {
-                entity.Property(e => e.Name).HasMaxLength(32);
-                entity.Property(e => e.Description).HasMaxLength(200);
-                entity.Property(e => e.InviteCode).HasMaxLength(16);
+                entity.Property(e => e.Name).HasMaxLength(MaxLengths.GroupName);
+                entity.Property(e => e.Description).HasMaxLength(MaxLengths.GroupDescription);
+                entity.Property(e => e.InviteCode).HasMaxLength(MaxLengths.GroupInviteCode);
 
                 entity.HasOne<User>().WithMany(u => u.OwnedGroups).HasForeignKey(e => e.OwnerUserId)
                     .OnDelete(DeleteBehavior.Restrict);
@@ -102,7 +103,7 @@ namespace Project.Data
 
             modelBuilder.Entity<GroupMember>(entity =>
             {
-                entity.Property(e => e.DisplayName).HasMaxLength(32);
+                entity.Property(e => e.DisplayName).HasMaxLength(MaxLengths.GroupMemberDisplayName);
 
                 entity.HasOne(e => e.Group).WithMany(g => g.GroupMembers).HasForeignKey(e => e.GroupId)
                     .OnDelete(DeleteBehavior.Restrict);
@@ -117,8 +118,8 @@ namespace Project.Data
 
             modelBuilder.Entity<Expense>(entity =>
             {
-                entity.Property(e => e.Name).HasMaxLength(50);
-                entity.Property(e => e.Description).HasMaxLength(200);
+                entity.Property(e => e.Name).HasMaxLength(MaxLengths.ExpenseName);
+                entity.Property(e => e.Description).HasMaxLength(MaxLengths.ExpenseDescription);
                 entity.Property(e => e.Amount).HasPrecision(18, 2);
 
                 entity.Property(e => e.Rate).HasPrecision(18, 6);
@@ -175,7 +176,7 @@ namespace Project.Data
 
             modelBuilder.Entity<ActivityLog>(entity =>
             {
-                entity.Property(e => e.Summary).HasMaxLength(500);
+                entity.Property(e => e.Summary).HasMaxLength(MaxLengths.ActivityLogSummary);
 
                 entity.HasOne(e => e.Group).WithMany(g => g.ActivityLogs).HasForeignKey(e => e.GroupId)
                     .OnDelete(DeleteBehavior.Restrict);

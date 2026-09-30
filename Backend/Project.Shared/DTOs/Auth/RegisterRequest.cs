@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using Project.Shared.Constants;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
 namespace Project.Shared.DTOs.Auth
@@ -10,7 +11,7 @@ namespace Project.Shared.DTOs.Auth
     {
         [Description("帳號")]
         [Required(ErrorMessage = "請傳入註冊的帳號")]
-        [StringLength(maximumLength: 30, MinimumLength = 6, ErrorMessage = "帳號長度請為6~30個字元")]
+        [StringLength(maximumLength: MaxLengths.UserAccount, MinimumLength = 6, ErrorMessage = "帳號長度請為{2}~{1}個字元")]
         public string Account { get; set; } = string.Empty;
 
         [Description("密碼")]
@@ -20,7 +21,7 @@ namespace Project.Shared.DTOs.Auth
 
         [Description("使用者名稱")]
         [Required(ErrorMessage = "請傳入使用者名稱")]
-        [StringLength(maximumLength: 30, MinimumLength = 2, ErrorMessage = "名稱長度請為2~30個字元")]
+        [StringLength(maximumLength: MaxLengths.UserName, MinimumLength = 2, ErrorMessage = "名稱長度請為{2}~{1}個字元")]
         public string Name { get; set; } = string.Empty;
     }
 }

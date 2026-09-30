@@ -1,4 +1,5 @@
-﻿using Project.Shared.Types;
+﻿using Project.Shared.Constants;
+using Project.Shared.Types;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 
@@ -27,6 +28,7 @@ namespace Project.Shared.DTOs.Transaction
         public int? Quantity { get; set; }
 
         [Description("備註")]
+        [StringLength(MaxLengths.TransactionRemark, ErrorMessage = "備註請勿超過 {1} 個字元")]
         public string? Remark { get; set; }
     }
 }

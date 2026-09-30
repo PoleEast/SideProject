@@ -15,6 +15,9 @@ public static class DbContextTestHelper
     /// 建立一個新的 InMemory ApplicationDbContext
     /// 每次調用都使用不同的資料庫名稱，保證測試隔離
     /// </summary>
+    /// <remarks>
+    /// 存檔時比照 SQL Server 檢查字串長度，超長時拋出 <see cref="DbUpdateException"/>。
+    /// </remarks>
     /// <param name="dbName">可選的資料庫名稱，未指定時自動生成唯一名稱</param>
     /// <returns>已建立 Schema 的 ApplicationDbContext</returns>
     public static ApplicationDbContext CreateContext(string? dbName = null)
@@ -23,6 +26,7 @@ public static class DbContextTestHelper
 
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: dbName)
+            .AddInterceptors(new MaxLengthInterceptor())
             .Options;
 
         var context = new ApplicationDbContext(options);

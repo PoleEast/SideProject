@@ -34,7 +34,7 @@ const rules: FormRules = {
   account: [
     {
       required: true,
-      max: 30,
+      max: 32,
       min: 6,
       message: '帳號長度請為6個字以上',
       trigger: ['blur', 'input'],
@@ -61,7 +61,7 @@ const rules: FormRules = {
     {
       required: true,
       min: 2,
-      max: 30,
+      max: 32,
       message: '名稱長度請為2個字以上',
       trigger: ['blur', 'input'],
     },
@@ -137,7 +137,7 @@ const clearReenteredPassword = () => {
       <!-- 登入表單 -->
       <n-form ref="formRef" v-if="isLogin" :model="formData" class="mt-2" :rules="rules">
         <n-form-item label="帳號" path="account">
-          <n-input v-model:value="formData.account" placeholder="請輸入帳號" round maxlength="30" />
+          <n-input v-model:value="formData.account" placeholder="請輸入帳號" round maxlength="32" />
         </n-form-item>
         <n-form-item label="密碼" path="password">
           <n-input

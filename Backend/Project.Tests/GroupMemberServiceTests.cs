@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Project.Api.Services;
 using Project.Data;
 using Project.Data.Model;
+using Project.Shared.Constants;
 using Project.Shared.DTOs.SplitBill;
 using Project.Shared.Types;
 using Project.Tests.Helpers;
@@ -174,33 +175,55 @@ public class GroupMemberServiceTests
         Assert.True(result.IsSuccess);
     }
 
-    [Fact(DisplayName = "新增成員：一次超過 10 人回 ValidationError")]
-    public async Task AddMembers_MoreThanTen_ReturnsValidationError()
+    [Fact(DisplayName = "新增成員：一次超過人數上限回 ValidationError")]
+    public async Task AddMembers_OverBatchLimit_ReturnsValidationError()
     {
         // Arrange
         using var context = DbContextTestHelper.CreateContext();
         await SplitBillSeeder.SeedAsync(context);
         var service = CreateService(context);
-        var elevenNames = Enumerable.Range(1, 11).Select(number => $"朋友{number}").ToArray();
+        var tooManyNames = Enumerable.Range(1, GroupMemberService.MaxMembersPerBatch + 1)
+            .Select(number => $"朋友{number}")
+            .ToArray();
 
         // Act
-        var result = await service.AddMembersAsync(GroupId, OwnerUserId, AddRequest(elevenNames));
+        var result = await service.AddMembersAsync(GroupId, OwnerUserId, AddRequest(tooManyNames));
 
         // Assert
         Assert.Equal(ResultCode.ValidationError, result.Code);
         Assert.Equal(3, await context.GroupMembers.CountAsync(Ct));
     }
 
+    [Fact(DisplayName = "新增成員：人數與名字長度都用到上限，動態敘述仍存得進去")]
+    public async Task AddMembers_MaxBatchOfLongestNames_Succeeds()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        var service = CreateService(context);
+        var longestNames = Enumerable.Range(1, GroupMemberService.MaxMembersPerBatch)
+            .Select(number => number.ToString().PadLeft(MaxLengths.GroupMemberDisplayName, '名'))
+            .ToArray();
+
+        // Act
+        var result = await service.AddMembersAsync(GroupId, OwnerUserId, AddRequest(longestNames));
+
+        // Assert - 動態敘述列出每個新成員的名字，調高人數上限會讓它超過 ActivityLog 敘述的上限而存檔失敗
+        Assert.Equal(ResultCode.Success, result.Code);
+        Assert.Equal(longestNames, result.Value!.Select(member => member.DisplayName));
+        Assert.Single(await context.ActivityLogs.Where(log => log.ActionType == ActivityActionType.MemberAdded).ToListAsync(Ct));
+    }
+
     public static TheoryData<string[]> InvalidNameBatches => new()
     {
         Array.Empty<string>(),
         new[] { "小美", "   " },
-        new[] { "小美", new string('名', 33) },
+        new[] { "小美", new string('名', MaxLengths.GroupMemberDisplayName + 1) },
         // JSON 的 ["小美", null] 能通過反序列化與模型驗證 —— nullable 標註擋不住清單裡的 null 元素
         new[] { "小美", null! }
     };
 
-    [Theory(DisplayName = "新增成員：清單為空、名稱為 null、去除空白後為空或超過 32 字，回 ValidationError")]
+    [Theory(DisplayName = "新增成員：清單為空、名稱為 null、去除空白後為空或超過上限，回 ValidationError")]
     [MemberData(nameof(InvalidNameBatches))]
     public async Task AddMembers_InvalidNames_ReturnsValidationError(string[] displayNames)
     {
@@ -292,9 +315,14 @@ public class GroupMemberServiceTests
         Assert.False(await context.ActivityLogs.AnyAsync(log => log.ActionType == ActivityActionType.MemberRenamed, Ct));
     }
 
-    [Theory(DisplayName = "改名：名稱去除空白後為空或超過 32 字，回 ValidationError")]
-    [InlineData("   ")]
-    [InlineData("名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名名")]
+    public static TheoryData<string> InvalidNames => new()
+    {
+        "   ",
+        new string('名', MaxLengths.GroupMemberDisplayName + 1)
+    };
+
+    [Theory(DisplayName = "改名：名稱去除空白後為空或超過上限，回 ValidationError")]
+    [MemberData(nameof(InvalidNames))]
     public async Task RenameMember_InvalidName_ReturnsValidationError(string displayName)
     {
         // Arrange

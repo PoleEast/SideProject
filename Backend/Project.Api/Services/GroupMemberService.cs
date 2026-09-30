@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Project.Api.Common;
 using Project.Data;
 using Project.Data.Model;
+using Project.Shared.Constants;
 using Project.Shared.DTOs;
 using Project.Shared.DTOs.SplitBill;
 using Project.Shared.Types;
@@ -16,14 +17,9 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
     /// <remarks>
     /// 見 SplitBill階段3B規格「批次新增」。
     /// </remarks>
-    private const int MaxMembersPerBatch = 10;
+    public const int MaxMembersPerBatch = 10;
 
-    /// <summary>
-    /// 顯示名稱的長度上限，與資料庫欄位一致
-    /// </summary>
-    private const int MaxDisplayNameLength = 32;
-
-    private static readonly string InvalidDisplayNameMessage = $"顯示名稱長度請為 1~{MaxDisplayNameLength} 個字元";
+    private static readonly string InvalidDisplayNameMessage = $"顯示名稱長度請為 1~{MaxLengths.GroupMemberDisplayName} 個字元";
 
     /// <summary>
     /// 取得群組的所有成員，包含已移除者
@@ -72,7 +68,7 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
         // 正規化
         var displayNames = request.DisplayNames.Select(displayName => displayName?.Trim() ?? string.Empty).ToList();
 
-        if (displayNames.Any(displayName => displayName.Length is 0 or > MaxDisplayNameLength))
+        if (displayNames.Any(displayName => displayName.Length is 0 or > MaxLengths.GroupMemberDisplayName))
         {
             return Result<List<GroupMemberResponse>>.Failure(ResultCode.ValidationError, InvalidDisplayNameMessage);
         }
@@ -146,7 +142,7 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
 
         string displayName = request.DisplayName.Trim();
 
-        if (displayName.Length is 0 or > MaxDisplayNameLength)
+        if (displayName.Length is 0 or > MaxLengths.GroupMemberDisplayName)
         {
             return Result<GroupMemberResponse>.Failure(ResultCode.ValidationError, InvalidDisplayNameMessage);
         }

@@ -303,6 +303,7 @@ public class SettlementCalculatorTests
         var result = SettlementCalculator.CalculateBalances(entries);
 
         // Assert - 相抵前後，每個人的淨收支都不能改變
+        // 不斷言「淨額加總 == 0」：每筆結果都是一人減、一人加同一金額，加總恆為 0，算錯也會過
         var expected = NetByMember(entries.Select(entry =>
             (entry.DebtorMemberId, entry.CreditorMemberId, entry.Amount)));
         var actual = NetByMember(result.Select(balance =>

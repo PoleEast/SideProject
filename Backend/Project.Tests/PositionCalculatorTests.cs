@@ -168,6 +168,59 @@ public class PositionCalculatorTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal(ResultCode.BusinessRuleViolation, result.Code);
+        Assert.Contains("AAPL", result.Message);
+    }
+
+    [Fact(DisplayName = "驗證交易：先賣後買，總量相抵仍回傳失敗")]
+    public void ValidateTransactions_SellBeforeBuy_ReturnsFailure()
+    {
+        // Arrange - 1/1 賣出時還沒有持股，1/2 才買入
+        var transactions = new TransactionBuilder()
+            .Sell(100, 15m, new DateOnly(2024, 1, 1))
+            .Buy(100, 10m, new DateOnly(2024, 1, 2))
+            .Build();
+
+        // Act
+        var result = PositionCalculator.ValidateTransactions(transactions);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ResultCode.BusinessRuleViolation, result.Code);
+        Assert.Contains("2024-01-01", result.Message);
+    }
+
+    [Fact(DisplayName = "驗證交易：中途賣超、之後補買回來，回傳失敗")]
+    public void ValidateTransactions_OversoldMidwayThenBoughtBack_ReturnsFailure()
+    {
+        // Arrange - 1/2 結束時持股為 100 - 150 = -50，1/3 補買後才回到 50
+        var transactions = new TransactionBuilder()
+            .Buy(100, 10m, new DateOnly(2024, 1, 1))
+            .Sell(150, 15m, new DateOnly(2024, 1, 2))
+            .Buy(100, 12m, new DateOnly(2024, 1, 3))
+            .Build();
+
+        // Act
+        var result = PositionCalculator.ValidateTransactions(transactions);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Contains("2024-01-02", result.Message);
+    }
+
+    [Fact(DisplayName = "驗證交易：同一天先輸入賣出再輸入買入，回傳成功")]
+    public void ValidateTransactions_SameDaySellEnteredBeforeBuy_ReturnsSuccess()
+    {
+        // Arrange - 日期只到日曆日，同一天內不分先後，當日結束時持股為 0
+        var transactions = new TransactionBuilder()
+            .Sell(100, 15m, new DateOnly(2024, 1, 1))
+            .Buy(100, 10m, new DateOnly(2024, 1, 1))
+            .Build();
+
+        // Act
+        var result = PositionCalculator.ValidateTransactions(transactions);
+
+        // Assert
+        Assert.True(result.IsSuccess);
     }
 
     [Fact(DisplayName = "驗證交易：空清單，回傳成功")]

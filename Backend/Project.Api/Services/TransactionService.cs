@@ -1,5 +1,6 @@
 ﻿using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Project.Api.Helpers;
 using Project.Data;
 using Project.Data.Model;
 using Project.Shared.DTOs;
@@ -23,6 +24,19 @@ namespace Project.Api.Services
                 Price = request.Price,
                 Remark = request.Remark,
             };
+
+            // 買入只會增加持股，賣出才需要確認持股足夠
+            if (transaction.Type == TransactionType.Sell)
+            {
+                var stockTransactions = await dbContext.Transactions
+                    .Where(stockTransaction => stockTransaction.UserId == userId
+                        && stockTransaction.StockMarket == transaction.StockMarket
+                        && stockTransaction.StockCode == transaction.StockCode)
+                    .ToListAsync();
+
+                var validateResult = PositionCalculator.ValidateTransactions([.. stockTransactions, transaction]);
+                if (!validateResult.IsSuccess) return Result<TransactionResponse>.Failure(validateResult);
+            }
 
             try
             {
@@ -66,6 +80,9 @@ namespace Project.Api.Services
                 return Result<TransactionResponse>.Failure(ResultCode.NotFound, "找不到此筆交易紀錄");
             }
 
+            var originalStockMarket = transaction.StockMarket;
+            var originalStockCode = transaction.StockCode;
+
             if (request.StockCode != null) transaction.StockCode = request.StockCode;
             if (request.Market != null) transaction.StockMarket = request.Market.Value;
             if (request.Date.HasValue) transaction.Date = request.Date.Value;
@@ -73,6 +90,17 @@ namespace Project.Api.Services
             if (request.Price.HasValue) transaction.Price = request.Price.Value;
             if (request.Quantity.HasValue) transaction.Quantity = request.Quantity.Value;
             if (request.Remark != null) transaction.Remark = request.Remark;
+
+            // 改股票時，原本那檔少了這筆、新的那檔多了這筆，兩檔都要驗證
+            var otherTransactions = await dbContext.Transactions
+                .Where(otherTransaction => otherTransaction.UserId == userId
+                    && otherTransaction.Id != id
+                    && ((otherTransaction.StockMarket == originalStockMarket && otherTransaction.StockCode == originalStockCode)
+                        || (otherTransaction.StockMarket == transaction.StockMarket && otherTransaction.StockCode == transaction.StockCode)))
+                .ToListAsync();
+
+            var validateResult = PositionCalculator.ValidateTransactions([.. otherTransactions, transaction]);
+            if (!validateResult.IsSuccess) return Result<TransactionResponse>.Failure(validateResult);
 
             try
             {
@@ -92,11 +120,23 @@ namespace Project.Api.Services
         {
             var transaction = await dbContext.Transactions.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
 
-            //todo: 增加讓賣出不會大於買入的阻擋功能
-
             if (transaction == null)
             {
                 return Result.Failure(ResultCode.NotFound, "找不到此筆交易紀錄");
+            }
+
+            // 刪除賣出只會增加持股，刪除買入才需要確認剩下的持股足夠
+            if (transaction.Type == TransactionType.Buy)
+            {
+                var remainingTransactions = await dbContext.Transactions
+                    .Where(stockTransaction => stockTransaction.UserId == userId
+                        && stockTransaction.Id != id
+                        && stockTransaction.StockMarket == transaction.StockMarket
+                        && stockTransaction.StockCode == transaction.StockCode)
+                    .ToListAsync();
+
+                var validateResult = PositionCalculator.ValidateTransactions(remainingTransactions);
+                if (!validateResult.IsSuccess) return validateResult;
             }
 
             try

@@ -11,8 +11,11 @@ namespace Project.Api.Helpers;
 public static class PositionCalculator
 {
     /// <summary>
-    /// 驗證交易紀錄是否合法（賣出不可大於買入）
+    /// 驗證交易紀錄是否合法（任一交易日結束時，持股不可為負）
     /// </summary>
+    /// <remarks>
+    /// 交易日期只到日曆日，同一天內的買賣不分先後，以當日結束時的持股判斷
+    /// </remarks>
     /// <param name="transactions">交易清單</param>
     /// <returns>驗證結果</returns>
     public static Result ValidateTransactions(IEnumerable<Transaction> transactions)
@@ -21,11 +24,17 @@ public static class PositionCalculator
 
         foreach (var group in transactionGroup)
         {
-            var quantity = group.Sum(t => t.Type == TransactionType.Buy ? t.Quantity : -t.Quantity);
+            var dailyTransactions = group.GroupBy(transaction => transaction.Date).OrderBy(daily => daily.Key);
+            var heldQuantity = 0;
 
-            if (quantity < 0)
+            foreach (var daily in dailyTransactions)
             {
-                return Result.Failure(ResultCode.BusinessRuleViolation, "不支援賣出大於買入的情況，請調整交易明細");
+                heldQuantity += daily.Sum(transaction => transaction.Type == TransactionType.Buy ? transaction.Quantity : -transaction.Quantity);
+
+                if (heldQuantity < 0)
+                {
+                    return Result.Failure(ResultCode.BusinessRuleViolation, $"{group.Key.StockCode} 在 {daily.Key:yyyy-MM-dd} 的賣出數量超過持有數量，請調整交易明細");
+                }
             }
         }
 

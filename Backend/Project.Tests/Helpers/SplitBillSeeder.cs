@@ -104,7 +104,7 @@ public static class SplitBillSeeder
             ActorUserId = OwnerUserId,
             ActionType = ActivityActionType.ExpenseCreated,
             TargetExpenseId = ExpenseId,
-            Summary = "小明 新增了「晚餐 ¥9,000」，由 3 人均分"
+            Summary = "小明 新增了「晚餐 JPY 9,000」，由 3 人均分"
         });
 
         await context.SaveChangesAsync();

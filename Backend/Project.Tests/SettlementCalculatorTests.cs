@@ -411,7 +411,7 @@ public class SettlementCalculatorTests
     [Fact(DisplayName = "捨入：剛好半個最小單位時進位（四捨五入，非銀行家捨入）")]
     public void RoundToUnit_ExactlyHalfUnit_RoundsAwayFromZero()
     {
-        // Arrange - ¥500 × 0.213 = 106.5；銀行家捨入會捨成偶數 106
+        // Arrange - JPY 500 × 0.213 = 106.5；銀行家捨入會捨成偶數 106
         MemberBalance[] balances = [new(DebtorMemberId: 2, CreditorMemberId: 1, Amount: 106.5m)];
 
         // Act

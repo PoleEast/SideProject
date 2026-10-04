@@ -15,8 +15,8 @@ namespace Project.Tests;
 /// 使用 InMemory 資料庫，透過服務層驗證成員的新增、改名、移除、列表與存取檢查
 /// </summary>
 /// <remarks>
-/// 種子：小明（擁有者，綁定 User）、Amy、阿華（皆未綁定）。¥9,000 由小明付款三人均分，
-/// Rate 0.212345，每人分攤換算為 NT$637.035；Amy 已還小明 500。
+/// 種子：小明（擁有者，綁定 User）、Amy、阿華（皆未綁定）。JPY 9,000 由小明付款三人均分，
+/// Rate 0.212345，每人分攤換算為 TWD 637.035；Amy 已還小明 500。
 /// </remarks>
 public class GroupMemberServiceTests
 {

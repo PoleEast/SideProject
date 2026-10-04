@@ -290,7 +290,7 @@ public class SplitBillDataLayerTests
             GroupId = SplitBillSeeder.GroupId,
             ActorUserId = SplitBillSeeder.OwnerUserId,
             ActionType = ActivityActionType.SettlementRecorded,
-            Summary = "小明 記錄了 Amy 還款 $500"
+            Summary = "小明 記錄了 Amy 還款 TWD 500"
         });
         await context.SaveChangesAsync(Ct);
 

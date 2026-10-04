@@ -11,7 +11,7 @@ namespace Project.Tests;
 /// 使用 InMemory 資料庫，驗證從分攤與還款紀錄推導出捨入後兩兩淨額的完整路徑
 /// </summary>
 /// <remarks>
-/// 種子：基準幣 TWD，¥9,000 由小明付款、三人均分，Rate 0.212345，每人分攤換算為 637.035；Amy 已還小明 500。
+/// 種子：基準幣 TWD，JPY 9,000 由小明付款、三人均分，Rate 0.212345，每人分攤換算為 637.035；Amy 已還小明 500。
 /// </remarks>
 public class SettlementServiceTests
 {

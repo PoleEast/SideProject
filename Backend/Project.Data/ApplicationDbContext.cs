@@ -150,9 +150,7 @@ namespace Project.Data
 
                 entity.HasIndex(e => e.ExpenseId);
 
-                // 刻意不串 GroupMember：成員移除後歷史明細必須保留，
-                // 串了會讓他的分攤整批消失，花費加總立刻不等於原幣總額。
-                // 這不是疏漏 —— 補上去會弄壞分帳的核心不變量。
+                // 刻意不串 GroupMember：成員移除後歷史明細必須保留
                 entity.HasQueryFilter(e => e.DeletedAt == null && e.Expense.DeletedAt == null);
             });
 

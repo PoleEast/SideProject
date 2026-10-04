@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Project.Api.Common;
+using Project.Api.Helpers;
 using Project.Data;
 using Project.Data.Model;
-using Project.Shared.Constants;
 using Project.Shared.DTOs;
 using Project.Shared.DTOs.SplitBill;
 using Project.Shared.Types;
@@ -19,7 +19,10 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
     /// </remarks>
     public const int MaxMembersPerBatch = 10;
 
-    private static readonly string InvalidDisplayNameMessage = $"顯示名稱長度請為 1~{MaxLengths.GroupMemberDisplayName} 個字元";
+    /// <summary>
+    /// 寫入時該位置的綁定已被別人改變的回傳訊息
+    /// </summary>
+    private const string ConcurrentChangeMessage = "成員資料剛被其他人修改，請重新整理後再試";
 
     /// <summary>
     /// 取得群組的所有成員，包含已移除者
@@ -65,31 +68,16 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
             return Result<List<GroupMemberResponse>>.Failure(ResultCode.NotFound, "找不到此群組");
         }
 
-        // 正規化
-        var displayNames = request.DisplayNames.Select(displayName => displayName?.Trim() ?? string.Empty).ToList();
+        var activeNames = await dbContext.GroupMembers.Where(member => member.GroupId == groupId).Select(member => member.DisplayName).ToListAsync();
 
-        if (displayNames.Any(displayName => displayName.Length is 0 or > MaxLengths.GroupMemberDisplayName))
+        var validation = MemberDisplayNameRules.Validate(request.DisplayNames, activeNames);
+
+        if (!validation.IsSuccess)
         {
-            return Result<List<GroupMemberResponse>>.Failure(ResultCode.ValidationError, InvalidDisplayNameMessage);
+            return Result<List<GroupMemberResponse>>.Failure(validation);
         }
 
-        // 撈進記憶體再不分大小寫比對，SQL Server 預設定序不分大小寫
-        var activeNames = await dbContext.GroupMembers
-            .Where(member => member.GroupId == groupId)
-            .Select(member => member.DisplayName)
-            .ToListAsync();
-
-        // 先放進未被移除的成員名字，Add 失敗等於撞名
-        var takenNames = new HashSet<string>(activeNames, StringComparer.OrdinalIgnoreCase);
-        var duplicateNames = displayNames
-            .Where(displayName => !takenNames.Add(displayName))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (duplicateNames.Count > 0)
-        {
-            return Result<List<GroupMemberResponse>>.Failure(ResultCode.Conflict, $"以下名稱與其他成員重複：{QuoteNames(duplicateNames)}");
-        }
+        var displayNames = validation.Value!;
 
         var members = displayNames
             .Select(displayName => new GroupMember { GroupId = groupId, DisplayName = displayName })
@@ -102,7 +90,7 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
             GroupId = groupId,
             ActorUserId = userId,
             ActionType = ActivityActionType.MemberAdded,
-            Summary = $"新增了成員{QuoteNames(displayNames)}"
+            Summary = $"新增了成員{NameListFormatter.Quote(displayNames)}"
         });
 
         try
@@ -140,28 +128,24 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
             return Result<GroupMemberResponse>.Failure(ResultCode.NotFound, "找不到此成員");
         }
 
-        string displayName = request.DisplayName.Trim();
-
-        if (displayName.Length is 0 or > MaxLengths.GroupMemberDisplayName)
-        {
-            return Result<GroupMemberResponse>.Failure(ResultCode.ValidationError, InvalidDisplayNameMessage);
-        }
-
-        if (displayName == member.DisplayName)
-        {
-            return Result<GroupMemberResponse>.Success(ToResponse(member, userId, group.OwnerUserId));
-        }
-
         // 排除本人，否則只改大小寫會撞到自己
         var otherNames = await dbContext.GroupMembers
             .Where(member => member.GroupId == groupId && member.Id != memberId)
             .Select(member => member.DisplayName)
             .ToListAsync();
 
-        if (otherNames.Contains(displayName, StringComparer.OrdinalIgnoreCase))
+        var validation = MemberDisplayNameRules.Validate(request.DisplayName, otherNames);
+
+        if (!validation.IsSuccess)
         {
-            return Result<GroupMemberResponse>.Failure(
-                ResultCode.Conflict, $"以下名稱與其他成員重複：{QuoteNames([displayName])}");
+            return Result<GroupMemberResponse>.Failure(validation);
+        }
+
+        string displayName = validation.Value!;
+
+        if (displayName == member.DisplayName)
+        {
+            return Result<GroupMemberResponse>.Success(ToResponse(member, userId, group.OwnerUserId));
         }
 
         dbContext.Add(new ActivityLog
@@ -177,6 +161,10 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
         try
         {
             await dbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result<GroupMemberResponse>.Failure(ResultCode.Conflict, ConcurrentChangeMessage);
         }
         catch (DbUpdateException ex)
         {
@@ -231,7 +219,16 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
                 .ToListAsync();
 
             return Result.Failure(ResultCode.BusinessRuleViolation,
-                $"「{member.DisplayName}」與{QuoteNames(counterpartNames)}之間尚有未結清的淨額");
+                $"「{member.DisplayName}」與{NameListFormatter.Quote(counterpartNames)}之間尚有未結清的淨額");
+        }
+
+        string summary = member.UserId == userId ? "退出了群組" : $"移除了成員「{member.DisplayName}」";
+
+        // 有人因此失去存取權：不重置的話，他持舊碼就能立刻再加入
+        if (member.UserId != null)
+        {
+            group.InviteCode = InviteCodeGenerator.Generate();
+            summary += "，並重置了邀請碼";
         }
 
         dbContext.Add(new ActivityLog
@@ -239,7 +236,7 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
             GroupId = groupId,
             ActorUserId = userId,
             ActionType = ActivityActionType.MemberRemoved,
-            Summary = member.UserId == userId ? "退出了群組" : $"移除了成員「{member.DisplayName}」"
+            Summary = summary
         });
 
         dbContext.Remove(member);
@@ -247,6 +244,10 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
         try
         {
             await dbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result.Failure(ResultCode.Conflict, ConcurrentChangeMessage);
         }
         catch (DbUpdateException ex)
         {
@@ -259,9 +260,65 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
     }
 
     /// <summary>
-    /// 組成「「小美」、「阿德」」這種動態與錯誤訊息用的名稱清單
+    /// 解除成員的帳號綁定，位置與帳目保留
     /// </summary>
-    private static string QuoteNames(IEnumerable<string> names) => string.Join("、", names.Select(name => $"「{name}」"));
+    public async Task<Result> UnbindMemberAsync(int groupId, int memberId, int userId)
+    {
+        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
+
+        if (group == null)
+        {
+            return Result.Failure(ResultCode.NotFound, "找不到此群組");
+        }
+
+        var member = await dbContext.GroupMembers.FirstOrDefaultAsync(storedMember => storedMember.Id == memberId && storedMember.GroupId == groupId);
+
+        if (member == null)
+        {
+            return Result.Failure(ResultCode.NotFound, "找不到此成員");
+        }
+
+        if (member.UserId == group.OwnerUserId)
+        {
+            return Result.Failure(ResultCode.BusinessRuleViolation, "不可解除擁有者的綁定");
+        }
+        if (member.UserId == null)
+        {
+            return Result.Success();
+        }
+
+        dbContext.Add(new ActivityLog
+        {
+            GroupId = groupId,
+            ActorUserId = userId,
+            ActionType = ActivityActionType.MemberUnbound,
+
+            // 解除自己要寫出位置名稱：位置與帳目還在，其他人需要知道它現在是空位
+            Summary = member.UserId == userId
+                ? $"解除了與「{member.DisplayName}」的綁定並退出群組，並重置了邀請碼"
+                : $"解除了「{member.DisplayName}」的帳號綁定，並重置了邀請碼"
+        });
+
+        member.UserId = null;
+        group.InviteCode = InviteCodeGenerator.Generate();
+
+        try
+        {
+            await dbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result.Failure(ResultCode.Conflict, ConcurrentChangeMessage);
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "解除綁定失敗。groupId: {GroupId}, memberId: {MemberId}, userId: {UserId}",
+                groupId, memberId, userId);
+            return Result.Failure(ResultCode.InternalServerError, "資料儲存失敗");
+        }
+
+        return Result.Success();
+    }
 
     private static GroupMemberResponse ToResponse(GroupMember member, int userId, int ownerUserId) => new()
     {

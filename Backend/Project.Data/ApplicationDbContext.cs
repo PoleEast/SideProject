@@ -105,6 +105,8 @@ namespace Project.Data
             {
                 entity.Property(e => e.DisplayName).HasMaxLength(MaxLengths.GroupMemberDisplayName);
 
+                entity.Property(e => e.UserId).IsConcurrencyToken();
+
                 entity.HasOne(e => e.Group).WithMany(g => g.GroupMembers).HasForeignKey(e => e.GroupId)
                     .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId)

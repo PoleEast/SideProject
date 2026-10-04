@@ -20,4 +20,12 @@ public static class InviteCodeGenerator
     /// </summary>
     /// <returns><see cref="CodeLength"/> 個字元，全部取自 <see cref="Alphabet"/></returns>
     public static string Generate() => RandomNumberGenerator.GetString(Alphabet, CodeLength);
+
+    /// <summary>
+    /// 將使用者輸入的邀請碼整理成 <see cref="Alphabet"/> 的形式
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Alphabet"/> 只有大寫英數，去除前後空白並轉為大寫。
+    /// </remarks>
+    public static string Normalize(string inviteCode) => inviteCode.Trim().ToUpperInvariant();
 }

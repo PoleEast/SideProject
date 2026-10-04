@@ -16,6 +16,7 @@ public static class SplitBillSeeder
 {
     public const int OwnerUserId = 1;
     public const int GroupId = 1;
+    public const string InviteCode = "ABC12345";
 
     /// <summary>小明 - 綁定 OwnerUserId 的成員，同時是唯一一筆花費的付款人</summary>
     public const int MingMemberId = 1;
@@ -25,6 +26,9 @@ public static class SplitBillSeeder
 
     /// <summary>阿華 - 未綁定 User 的成員</summary>
     public const int HuaMemberId = 3;
+
+    /// <summary>種子建立的成員數</summary>
+    public const int MemberCount = 3;
 
     public const int ExpenseId = 1;
 
@@ -54,7 +58,7 @@ public static class SplitBillSeeder
             Name = "日本旅遊",
             Description = "2026 夏天",
             BaseCurrency = CurrencyType.TWD,
-            InviteCode = "ABC12345"
+            InviteCode = InviteCode
         });
 
         context.GroupMembers.AddRange(
@@ -107,5 +111,14 @@ public static class SplitBillSeeder
 
         // 清空追蹤，讓每個測試自己決定哪些資料在 ChangeTracker 中
         context.ChangeTracker.Clear();
+    }
+
+    /// <summary>
+    /// 建立一個尚未加入任何群組的 User
+    /// </summary>
+    public static async Task AddUserAsync(ApplicationDbContext context, int userId, string name)
+    {
+        context.Users.Add(new User { Id = userId, Account = $"user{userId}", PasswordHash = "not_used_in_tests", Name = name });
+        await context.SaveChangesAsync();
     }
 }

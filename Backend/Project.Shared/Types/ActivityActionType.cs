@@ -35,6 +35,12 @@ namespace Project.Shared.Types
         [Description("重置邀請碼")]
         InviteCodeReset,
         [Description("成員改名")]
-        MemberRenamed
+        MemberRenamed,
+        [Description("認領成員")]
+        MemberClaimed,
+        [Description("以新成員加入")]
+        MemberJoined,
+        [Description("解除綁定")]
+        MemberUnbound
     }
 }

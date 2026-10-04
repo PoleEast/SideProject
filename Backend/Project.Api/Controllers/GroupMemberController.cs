@@ -96,4 +96,25 @@ public class GroupMemberController(GroupMemberService service) : ControllerBase
             _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
         };
     }
+
+    /// <summary>
+    /// 解除成員的帳號綁定，位置與帳目保留
+    /// </summary>
+    [HttpDelete("{memberId}/binding")]
+    public async Task<ActionResult> Unbind(int groupId, int memberId)
+    {
+        if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int userId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await service.UnbindMemberAsync(groupId, memberId, userId);
+
+        return result.Code switch
+        {
+            ResultCode.Success => Ok(),
+            ResultCode.NotFound => NotFound(result.Message),
+            _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
+        };
+    }
 }

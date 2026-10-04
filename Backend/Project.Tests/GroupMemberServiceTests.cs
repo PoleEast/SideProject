@@ -55,6 +55,25 @@ public class GroupMemberServiceTests
         return mei;
     }
 
+    private const int AmyUserId = 3;
+
+    /// <summary>
+    /// 建立 Amy 的帳號，並讓她綁定種子裡那個還有帳沒清的「Amy」位置
+    /// </summary>
+    private static async Task BindAmyAsync(ApplicationDbContext context)
+    {
+        await SplitBillSeeder.AddUserAsync(context, AmyUserId, "陳怡安");
+        var amy = await context.GroupMembers.SingleAsync(member => member.Id == SplitBillSeeder.AmyMemberId, Ct);
+        amy.UserId = AmyUserId;
+        await context.SaveChangesAsync(Ct);
+    }
+
+    private static async Task<string> CurrentInviteCodeAsync(ApplicationDbContext context)
+        => await context.Groups.AsNoTracking()
+            .Where(group => group.Id == GroupId)
+            .Select(group => group.InviteCode)
+            .SingleAsync(Ct);
+
     #region 新增
 
     [Fact(DisplayName = "新增成員：一次加入多位，回傳新成員")]
@@ -107,7 +126,7 @@ public class GroupMemberServiceTests
         Assert.Equal(ResultCode.Conflict, result.Code);
         Assert.Contains("「Amy」", result.Message);
         Assert.DoesNotContain("小美", result.Message);
-        Assert.Equal(3, await context.GroupMembers.CountAsync(Ct));
+        Assert.Equal(SplitBillSeeder.MemberCount, await context.GroupMembers.CountAsync(Ct));
         Assert.False(await context.ActivityLogs.AnyAsync(log => log.ActionType == ActivityActionType.MemberAdded, Ct));
     }
 
@@ -156,7 +175,7 @@ public class GroupMemberServiceTests
         // Assert
         Assert.Equal(ResultCode.Conflict, result.Code);
         Assert.Contains("「小美」", result.Message);
-        Assert.Equal(3, await context.GroupMembers.CountAsync(Ct));
+        Assert.Equal(SplitBillSeeder.MemberCount, await context.GroupMembers.CountAsync(Ct));
     }
 
     [Fact(DisplayName = "新增成員：已移除成員的名字可以再用")]
@@ -191,7 +210,7 @@ public class GroupMemberServiceTests
 
         // Assert
         Assert.Equal(ResultCode.ValidationError, result.Code);
-        Assert.Equal(3, await context.GroupMembers.CountAsync(Ct));
+        Assert.Equal(SplitBillSeeder.MemberCount, await context.GroupMembers.CountAsync(Ct));
     }
 
     [Fact(DisplayName = "新增成員：人數與名字長度都用到上限，動態敘述仍存得進去")]
@@ -237,7 +256,7 @@ public class GroupMemberServiceTests
 
         // Assert
         Assert.Equal(ResultCode.ValidationError, result.Code);
-        Assert.Equal(3, await context.GroupMembers.CountAsync(Ct));
+        Assert.Equal(SplitBillSeeder.MemberCount, await context.GroupMembers.CountAsync(Ct));
     }
 
     #endregion
@@ -418,8 +437,8 @@ public class GroupMemberServiceTests
         Assert.False(await context.GroupMembers.AnyAsync(member => member.Id == SplitBillSeeder.HuaMemberId, Ct));
     }
 
-    [Fact(DisplayName = "移除：移除別人時寫入「移除了成員」動態")]
-    public async Task RemoveMember_OtherMember_LogsRemoval()
+    [Fact(DisplayName = "移除：移除只是名字的成員時寫入「移除了成員」動態，不重置邀請碼")]
+    public async Task RemoveMember_UnboundMember_LogsRemovalWithoutReset()
     {
         // Arrange - 小美沒有任何帳
         using var context = DbContextTestHelper.CreateContext();
@@ -435,9 +454,30 @@ public class GroupMemberServiceTests
         var log = await context.ActivityLogs.SingleAsync(log => log.ActionType == ActivityActionType.MemberRemoved, Ct);
         Assert.Equal(OwnerUserId, log.ActorUserId);
         Assert.Equal("移除了成員「小美」", log.Summary);
+        Assert.Equal(SplitBillSeeder.InviteCode, await CurrentInviteCodeAsync(context));
     }
 
-    [Fact(DisplayName = "移除：綁定帳號的成員移除自己即退出，動態寫「退出了群組」且之後存取不到")]
+    [Fact(DisplayName = "移除：移除綁定帳號的他人時重置邀請碼，動態說明重置")]
+    public async Task RemoveMember_BoundOtherMember_ResetsInviteCode()
+    {
+        // Arrange - 小美綁定了帳號、沒有任何帳，像是拿外流邀請碼加入的陌生人
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        var mei = await AddMeiAsBoundMemberAsync(context);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.RemoveMemberAsync(GroupId, mei.Id, OwnerUserId);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotEqual(SplitBillSeeder.InviteCode, await CurrentInviteCodeAsync(context));
+
+        var log = await context.ActivityLogs.SingleAsync(log => log.ActionType == ActivityActionType.MemberRemoved, Ct);
+        Assert.Equal("移除了成員「小美」，並重置了邀請碼", log.Summary);
+    }
+
+    [Fact(DisplayName = "移除：綁定帳號的成員移除自己即退出，動態寫「退出了群組」、重置邀請碼且之後存取不到")]
     public async Task RemoveMember_Self_LeavesGroupAndLosesAccess()
     {
         // Arrange
@@ -454,10 +494,210 @@ public class GroupMemberServiceTests
 
         var log = await context.ActivityLogs.SingleAsync(log => log.ActionType == ActivityActionType.MemberRemoved, Ct);
         Assert.Equal(MeiUserId, log.ActorUserId);
-        Assert.Equal("退出了群組", log.Summary);
+        Assert.Equal("退出了群組，並重置了邀請碼", log.Summary);
+        Assert.NotEqual(SplitBillSeeder.InviteCode, await CurrentInviteCodeAsync(context));
+        Assert.Equal(ResultCode.NotFound, await SplitBillAccess.ReadSeededGroupAsync(context, MeiUserId));
+    }
 
-        var groupService = new GroupService(context, NullLogger<GroupService>.Instance);
-        Assert.Equal(ResultCode.NotFound, (await groupService.GetGroupByIdAsync(GroupId, MeiUserId)).Code);
+    #endregion
+
+    #region 解除綁定
+
+    [Fact(DisplayName = "解除綁定：解除他人後該 User 失去存取權，位置與帳目保留，邀請碼重置")]
+    public async Task UnbindMember_OtherMember_RevokesAccessKeepsSeatAndResetsInviteCode()
+    {
+        // Arrange - Amy 還欠小明錢，移除不了，只能解除綁定
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await BindAmyAsync(context);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.UnbindMemberAsync(GroupId, SplitBillSeeder.AmyMemberId, OwnerUserId);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ResultCode.NotFound, await SplitBillAccess.ReadSeededGroupAsync(context, AmyUserId));
+
+        var amy = await context.GroupMembers.AsNoTracking().SingleAsync(member => member.Id == SplitBillSeeder.AmyMemberId, Ct);
+        Assert.Null(amy.UserId);
+        Assert.Equal("Amy", amy.DisplayName);
+        Assert.True(await context.ExpenseShares.AnyAsync(share => share.GroupMemberId == SplitBillSeeder.AmyMemberId, Ct));
+
+        Assert.NotEqual(SplitBillSeeder.InviteCode, await CurrentInviteCodeAsync(context));
+    }
+
+    [Fact(DisplayName = "解除綁定：動態寫出被解除的位置，並說明邀請碼已重置")]
+    public async Task UnbindMember_OtherMember_LogsUnbindWithReset()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await BindAmyAsync(context);
+        var service = CreateService(context);
+
+        // Act
+        await service.UnbindMemberAsync(GroupId, SplitBillSeeder.AmyMemberId, OwnerUserId);
+
+        // Assert
+        var log = await context.ActivityLogs.SingleAsync(log => log.ActionType == ActivityActionType.MemberUnbound, Ct);
+        Assert.Equal(OwnerUserId, log.ActorUserId);
+        Assert.Equal("解除了「Amy」的帳號綁定，並重置了邀請碼", log.Summary);
+    }
+
+    [Fact(DisplayName = "解除綁定：擁有者的位置不可解除，連擁有者本人也不行")]
+    public async Task UnbindMember_OwnerSeat_ReturnsBusinessRuleViolation()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await BindAmyAsync(context);
+        var service = CreateService(context);
+
+        // Act
+        var byOther = await service.UnbindMemberAsync(GroupId, SplitBillSeeder.MingMemberId, AmyUserId);
+        var bySelf = await service.UnbindMemberAsync(GroupId, SplitBillSeeder.MingMemberId, OwnerUserId);
+
+        // Assert
+        Assert.Equal(ResultCode.BusinessRuleViolation, byOther.Code);
+        Assert.Equal(ResultCode.BusinessRuleViolation, bySelf.Code);
+        Assert.Equal(ResultCode.Success, await SplitBillAccess.ReadSeededGroupAsync(context, OwnerUserId));
+        Assert.Equal(SplitBillSeeder.InviteCode, await CurrentInviteCodeAsync(context));
+    }
+
+    [Fact(DisplayName = "解除綁定：位置本來就未綁定時直接回成功，不寫動態、不重置邀請碼")]
+    public async Task UnbindMember_UnboundSeat_SucceedsWithoutLogOrReset()
+    {
+        // Arrange - 阿華只是一個名字
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.UnbindMemberAsync(GroupId, SplitBillSeeder.HuaMemberId, OwnerUserId);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.False(await context.ActivityLogs.AnyAsync(log => log.ActionType == ActivityActionType.MemberUnbound, Ct));
+        Assert.Equal(SplitBillSeeder.InviteCode, await CurrentInviteCodeAsync(context));
+    }
+
+    [Fact(DisplayName = "解除綁定：已移除的成員回 NotFound")]
+    public async Task UnbindMember_RemovedMember_ReturnsNotFound()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await RemoveAmyAsync(context);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.UnbindMemberAsync(GroupId, SplitBillSeeder.AmyMemberId, OwnerUserId);
+
+        // Assert
+        Assert.Equal(ResultCode.NotFound, result.Code);
+    }
+
+    [Fact(DisplayName = "解除綁定：解除自己即退出群組，動態寫出留下的位置名稱")]
+    public async Task UnbindMember_Self_LeavesGroupAndLogsSeatName()
+    {
+        // Arrange - Amy 帳還沒清就想離開
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await BindAmyAsync(context);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.UnbindMemberAsync(GroupId, SplitBillSeeder.AmyMemberId, AmyUserId);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ResultCode.NotFound, await SplitBillAccess.ReadSeededGroupAsync(context, AmyUserId));
+
+        var log = await context.ActivityLogs.SingleAsync(log => log.ActionType == ActivityActionType.MemberUnbound, Ct);
+        Assert.Equal(AmyUserId, log.ActorUserId);
+        Assert.Equal("解除了與「Amy」的綁定並退出群組，並重置了邀請碼", log.Summary);
+    }
+
+    #endregion
+
+    #region 並行衝突
+
+    // 兩個 DbContext 共用同一個資料庫，代表兩個同時進行的請求。
+    // 後到的請求先把位置讀進追蹤；同一個 DbContext 之後的查詢會拿回這個已追蹤的舊實例。
+
+    [Fact(DisplayName = "並行衝突：改名時該位置剛被認領，回 Conflict")]
+    public async Task RenameMember_SeatClaimedConcurrently_ReturnsConflict()
+    {
+        // Arrange
+        string databaseName = Guid.NewGuid().ToString();
+        using var earlierContext = DbContextTestHelper.CreateContext(databaseName);
+        using var laterContext = DbContextTestHelper.CreateContext(databaseName);
+        await SplitBillSeeder.SeedAsync(earlierContext);
+
+        await laterContext.GroupMembers.SingleAsync(member => member.Id == SplitBillSeeder.AmyMemberId, Ct);
+        await BindAmyAsync(earlierContext);
+
+        // Act
+        var result = await CreateService(laterContext).RenameMemberAsync(
+            GroupId, SplitBillSeeder.AmyMemberId, OwnerUserId, new RenameGroupMemberRequest { DisplayName = "Amy Chen" });
+
+        // Assert
+        Assert.Equal(ResultCode.Conflict, result.Code);
+    }
+
+    [Fact(DisplayName = "並行衝突：移除時該位置剛被認領，回 Conflict，剛加入的人仍可存取")]
+    public async Task RemoveMember_SeatClaimedConcurrently_ReturnsConflictAndKeepsNewcomer()
+    {
+        // Arrange - 小美這個位置沒有任何帳，畫面上看起來只是一個名字
+        string databaseName = Guid.NewGuid().ToString();
+        using var earlierContext = DbContextTestHelper.CreateContext(databaseName);
+        using var laterContext = DbContextTestHelper.CreateContext(databaseName);
+        await SplitBillSeeder.SeedAsync(earlierContext);
+
+        await SplitBillSeeder.AddUserAsync(earlierContext, MeiUserId, "小美");
+        var mei = new GroupMember { GroupId = GroupId, DisplayName = "小美" };
+        earlierContext.GroupMembers.Add(mei);
+        await earlierContext.SaveChangesAsync(Ct);
+
+        await laterContext.GroupMembers.SingleAsync(member => member.Id == mei.Id, Ct);
+        mei.UserId = MeiUserId;
+        await earlierContext.SaveChangesAsync(Ct);
+
+        // Act - 依過期的畫面，以為移除的只是一個名字
+        var result = await CreateService(laterContext).RemoveMemberAsync(GroupId, mei.Id, OwnerUserId);
+
+        // Assert
+        Assert.Equal(ResultCode.Conflict, result.Code);
+        Assert.Equal(ResultCode.Success, await SplitBillAccess.ReadSeededGroupAsync(earlierContext, MeiUserId));
+    }
+
+    [Fact(DisplayName = "並行衝突：解除綁定時該位置已換了人，回 Conflict，不會把新主人請出去")]
+    public async Task UnbindMember_SeatReclaimedConcurrently_ReturnsConflictAndKeepsNewcomer()
+    {
+        // Arrange - 陌生人占了 Amy 的位置；兩位成員同時處理，其中一位已先解除綁定、Amy 也已認領回來
+        const int strangerUserId = 98;
+        string databaseName = Guid.NewGuid().ToString();
+        using var earlierContext = DbContextTestHelper.CreateContext(databaseName);
+        using var laterContext = DbContextTestHelper.CreateContext(databaseName);
+        await SplitBillSeeder.SeedAsync(earlierContext);
+
+        await SplitBillSeeder.AddUserAsync(earlierContext, strangerUserId, "路人");
+        var seat =await earlierContext.GroupMembers.SingleAsync(member => member.Id == SplitBillSeeder.AmyMemberId, Ct);
+        seat.UserId = strangerUserId;
+        await earlierContext.SaveChangesAsync(Ct);
+
+        await laterContext.GroupMembers.SingleAsync(member => member.Id == SplitBillSeeder.AmyMemberId, Ct);
+        seat.UserId = null;
+        await earlierContext.SaveChangesAsync(Ct);
+        await BindAmyAsync(earlierContext);
+
+        // Act - 依過期的畫面，以為位置上還是陌生人
+        var result = await CreateService(laterContext).UnbindMemberAsync(GroupId, SplitBillSeeder.AmyMemberId, OwnerUserId);
+
+        // Assert
+        Assert.Equal(ResultCode.Conflict, result.Code);
+        Assert.Equal(ResultCode.Success, await SplitBillAccess.ReadSeededGroupAsync(earlierContext, AmyUserId));
     }
 
     #endregion
@@ -509,7 +749,7 @@ public class GroupMemberServiceTests
 
     #region 存取檢查
 
-    [Fact(DisplayName = "存取檢查：非成員呼叫四個端點皆回 NotFound，資料不變")]
+    [Fact(DisplayName = "存取檢查：非成員呼叫五個端點皆回 NotFound，資料不變")]
     public async Task AllOperations_NotAMember_ReturnNotFound()
     {
         // Arrange
@@ -524,15 +764,16 @@ public class GroupMemberServiceTests
         var rename = await service.RenameMemberAsync(
             GroupId, SplitBillSeeder.HuaMemberId, strangerUserId, new RenameGroupMemberRequest { DisplayName = "被改名" });
         var remove = await service.RemoveMemberAsync(GroupId, SplitBillSeeder.HuaMemberId, strangerUserId);
+        var unbind = await service.UnbindMemberAsync(GroupId, SplitBillSeeder.MingMemberId, strangerUserId);
 
         // Assert - 不區分 404／403，否則能用遞增 id 掃出哪些群組存在
-        Assert.All([list.Code, add.Code, rename.Code, remove.Code], code => Assert.Equal(ResultCode.NotFound, code));
+        Assert.All([list.Code, add.Code, rename.Code, remove.Code, unbind.Code], code => Assert.Equal(ResultCode.NotFound, code));
         Assert.Equal(["小明", "Amy", "阿華"], await context.GroupMembers.OrderBy(member => member.Id)
             .Select(member => member.DisplayName).ToListAsync(Ct));
     }
 
     [Fact(DisplayName = "存取檢查：用自己群組的 id 操作別的群組的成員，回 NotFound")]
-    public async Task RenameAndRemove_MemberOfAnotherGroup_ReturnNotFound()
+    public async Task MemberOperations_MemberOfAnotherGroup_ReturnNotFound()
     {
         // Arrange - 小明另有一個群組，想借它的 id 動到日本旅遊裡的阿華
         using var context = DbContextTestHelper.CreateContext();
@@ -549,10 +790,12 @@ public class GroupMemberServiceTests
         var rename = await service.RenameMemberAsync(
             otherGroup.Value!.Id, SplitBillSeeder.HuaMemberId, OwnerUserId, new RenameGroupMemberRequest { DisplayName = "被改名" });
         var remove = await service.RemoveMemberAsync(otherGroup.Value!.Id, SplitBillSeeder.HuaMemberId, OwnerUserId);
+        var unbind = await service.UnbindMemberAsync(otherGroup.Value!.Id, SplitBillSeeder.HuaMemberId, OwnerUserId);
 
         // Assert
         Assert.Equal(ResultCode.NotFound, rename.Code);
         Assert.Equal(ResultCode.NotFound, remove.Code);
+        Assert.Equal(ResultCode.NotFound, unbind.Code);
     }
 
     #endregion

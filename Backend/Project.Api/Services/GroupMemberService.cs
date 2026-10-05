@@ -90,7 +90,7 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
             GroupId = groupId,
             ActorUserId = userId,
             ActionType = ActivityActionType.MemberAdded,
-            Summary = $"新增了成員{NameListFormatter.Quote(displayNames)}"
+            Summary = $"新增了成員{StringFormatter.FormatNameList(displayNames)}"
         });
 
         try
@@ -219,7 +219,7 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
                 .ToListAsync();
 
             return Result.Failure(ResultCode.BusinessRuleViolation,
-                $"「{member.DisplayName}」與{NameListFormatter.Quote(counterpartNames)}之間尚有未結清的淨額");
+                $"「{member.DisplayName}」與{StringFormatter.FormatNameList(counterpartNames)}之間尚有未結清的淨額");
         }
 
         string summary = member.UserId == userId ? "退出了群組" : $"移除了成員「{member.DisplayName}」";

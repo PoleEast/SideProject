@@ -17,7 +17,7 @@ namespace Project.Data.Model
         /// 含變動前後值的完整中文敘述，由 Service 層組成
         /// </summary>
         /// <remarks>
-        /// 例如「將『晚餐』金額由 JPY 10,000 改為 JPY 8,000，參與者由 3 人改為 4 人」。
+        /// 例如「修改了花費「晚餐」：金額由 JPY 10,000 改為 JPY 8,000、參與者由 3 人改為 4 人」。
         /// </remarks>
         public string Summary { get; set; } = string.Empty;
         public DateTimeOffset CreatedAt { get; set; }

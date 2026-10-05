@@ -33,7 +33,7 @@ public static class MemberDisplayNameRules
 
         if (duplicateNames.Count > 0)
         {
-            return Result<List<string>>.Failure(ResultCode.Conflict, $"以下名稱與其他成員重複：{NameListFormatter.Quote(duplicateNames)}");
+            return Result<List<string>>.Failure(ResultCode.Conflict, $"以下名稱與其他成員重複：{StringFormatter.FormatNameList(duplicateNames)}");
         }
 
         return Result<List<string>>.Success(displayNames);

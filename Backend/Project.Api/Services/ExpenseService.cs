@@ -1,0 +1,503 @@
+using Microsoft.EntityFrameworkCore;
+using Project.Api.Common;
+using Project.Api.Helpers;
+using Project.Core.Common;
+using Project.Data;
+using Project.Data.Model;
+using Project.Shared.DTOs;
+using Project.Shared.DTOs.SplitBill;
+using Project.Shared.Types;
+using System.Globalization;
+
+namespace Project.Api.Services;
+
+public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService exchangeRateService, ILogger<ExpenseService> logger)
+{
+    /// <summary>
+    /// 寫入時這筆花費已被別人改過的回傳訊息
+    /// </summary>
+    private const string ConcurrentChangeMessage = "這筆花費剛被其他人修改，請重新整理後再試";
+
+    /// <summary>
+    /// Rate 存入前捨入到的小數位數
+    /// </summary>
+    /// <remarks>
+    /// 須與 Rate 欄位的精度相同。
+    /// </remarks>
+    private const int RateDecimals = 6;
+
+    /// <summary>
+    /// 花費金額的上限
+    /// </summary>
+    /// <remarks>
+    /// 遠低於金額欄位的容量，超出時回驗證錯誤，而不是讓資料庫溢位。
+    /// </remarks>
+    private const decimal MaxAmount = 999999999.99m;
+
+    public async Task<Result<List<ExpenseResponse>>> GetExpensesAsync(int groupId, int userId)
+    {
+        bool isAccessible = await dbContext.Groups.AccessibleBy(userId).AnyAsync(storedGroup => storedGroup.Id == groupId);
+
+        if (!isAccessible)
+        {
+            return Result<List<ExpenseResponse>>.Failure(ResultCode.NotFound, "找不到此群組");
+        }
+
+        var expenses = await dbContext.Expenses.AsNoTracking()
+                                               .Include(expense => expense.ExpenseShares)
+                                               .Where(expense => expense.GroupId == groupId)
+                                               .OrderByDescending(expense => expense.Date)
+                                               .ThenByDescending(expense => expense.Id)
+                                               .ToListAsync();
+
+        return Result<List<ExpenseResponse>>.Success(expenses.Select(ToResponse).ToList());
+    }
+
+    public async Task<Result<ExpenseResponse>> CreateExpenseAsync(int groupId, int userId, ExpenseRequest request)
+    {
+        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
+
+        if (group == null)
+        {
+            return Result<ExpenseResponse>.Failure(ResultCode.NotFound, "找不到此群組");
+        }
+
+        var validation = await ValidateAsync(groupId, request, existingExpense: null);
+
+        if (!validation.IsSuccess)
+        {
+            return Result<ExpenseResponse>.Failure(validation);
+        }
+
+        var resolvedRate = await ResolveRateAsync(request.Currency!.Value, group.BaseCurrency);
+
+        if (!resolvedRate.IsSuccess)
+        {
+            return Result<ExpenseResponse>.Failure(resolvedRate);
+        }
+
+        var expense = new Expense
+        {
+            GroupId = groupId,
+            PayerId = request.PayerId,
+            Name = request.Name.Trim(),
+            Description = request.Description,
+            Category = request.Category!.Value,
+            Currency = request.Currency.Value,
+            Amount = request.Amount,
+            Rate = resolvedRate.Value,
+            Date = request.Date!.Value,
+            CreatedByUserId = userId,
+            ExpenseShares = ToShares(request.Shares)
+        };
+
+        var memberNames = await FindMemberNamesAsync(groupId, [expense.PayerId]);
+
+        dbContext.Add(expense);
+
+        dbContext.Add(new ActivityLog
+        {
+            GroupId = groupId,
+            ActorUserId = userId,
+            ActionType = ActivityActionType.ExpenseCreated,
+            TargetExpense = expense,
+            Summary = $"新增了花費「{expense.Name}」{StringFormatter.FormatMoney(expense.Currency, expense.Amount)}，"
+                + $"由「{memberNames[expense.PayerId]}」付款，{expense.ExpenseShares.Count} 人分攤"
+        });
+
+        try
+        {
+            await dbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "建立花費失敗。groupId: {GroupId}, userId: {UserId}", groupId, userId);
+            return Result<ExpenseResponse>.Failure(ResultCode.InternalServerError, "資料儲存失敗");
+        }
+
+        return Result<ExpenseResponse>.Success(ToResponse(expense));
+    }
+
+    /// <summary>
+    /// 以請求的內容覆蓋整筆花費
+    /// </summary>
+    public async Task<Result<ExpenseResponse>> UpdateExpenseAsync(int groupId, int expenseId, int userId, ExpenseRequest request)
+    {
+        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
+
+        if (group == null)
+        {
+            return Result<ExpenseResponse>.Failure(ResultCode.NotFound, "找不到此群組");
+        }
+
+        var expense = await dbContext.Expenses.Include(storedExpense => storedExpense.ExpenseShares).FirstOrDefaultAsync(storedExpense => storedExpense.Id == expenseId && storedExpense.GroupId == groupId);
+
+        if (expense == null)
+        {
+            return Result<ExpenseResponse>.Failure(ResultCode.NotFound, "找不到此花費");
+        }
+
+        var validation = await ValidateAsync(groupId, request, expense);
+
+        if (!validation.IsSuccess)
+        {
+            return Result<ExpenseResponse>.Failure(validation);
+        }
+
+        var currency = request.Currency!.Value;
+        string? shareChange = DescribeShareChange(expense.ExpenseShares, request.Shares);
+        string? summary = await BuildUpdateSummaryAsync(groupId, expense, request, shareChange);
+
+        if (summary == null)
+        {
+            return Result<ExpenseResponse>.Success(ToResponse(expense));
+        }
+
+        // Rate 跟著原幣走：原幣不變就不動，改了才重新取得。取得失敗時尚未改動任何資料
+        decimal rate = expense.Rate;
+
+        if (currency != expense.Currency)
+        {
+            var resolvedRate = await ResolveRateAsync(currency, group.BaseCurrency);
+
+            if (!resolvedRate.IsSuccess)
+            {
+                return Result<ExpenseResponse>.Failure(resolvedRate);
+            }
+
+            rate = resolvedRate.Value;
+        }
+
+        dbContext.Add(new ActivityLog
+        {
+            GroupId = groupId,
+            ActorUserId = userId,
+            ActionType = ActivityActionType.ExpenseUpdated,
+            TargetExpenseId = expense.Id,
+            Summary = summary
+        });
+
+        expense.Name = request.Name.Trim();
+        expense.Description = request.Description;
+        expense.Category = request.Category!.Value;
+        expense.Currency = currency;
+        expense.Amount = request.Amount;
+        expense.Rate = rate;
+        expense.Date = request.Date!.Value;
+        expense.PayerId = request.PayerId;
+
+        if (shareChange != null)
+        {
+            // 存入的必須就是送來的那一組，因此整批換掉，不逐筆比對更新
+            dbContext.RemoveRange(expense.ExpenseShares);
+
+            foreach (var share in ToShares(request.Shares))
+            {
+                expense.ExpenseShares.Add(share);
+            }
+        }
+
+        // 只改分攤時主表沒有任何欄位變動，不推進 UpdatedAt 就不會檢查 concurrency token
+        expense.UpdatedAt = DateTimeOffset.UtcNow;
+
+        try
+        {
+            await dbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result<ExpenseResponse>.Failure(ResultCode.Conflict, ConcurrentChangeMessage);
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "編輯花費失敗。groupId: {GroupId}, expenseId: {ExpenseId}, userId: {UserId}", groupId, expenseId, userId);
+            return Result<ExpenseResponse>.Failure(ResultCode.InternalServerError, "資料儲存失敗");
+        }
+
+        return Result<ExpenseResponse>.Success(ToResponse(expense));
+    }
+
+    /// <remarks>
+    /// 分攤無須逐一軟刪，query filter 已串接花費的軟刪欄位。
+    /// </remarks>
+    public async Task<Result> DeleteExpenseAsync(int groupId, int expenseId, int userId)
+    {
+        bool isAccessible = await dbContext.Groups.AccessibleBy(userId).AnyAsync(storedGroup => storedGroup.Id == groupId);
+
+        if (!isAccessible)
+        {
+            return Result.Failure(ResultCode.NotFound, "找不到此群組");
+        }
+
+        var expense = await dbContext.Expenses.FirstOrDefaultAsync(storedExpense => storedExpense.Id == expenseId && storedExpense.GroupId == groupId);
+
+        if (expense == null)
+        {
+            return Result.Failure(ResultCode.NotFound, "找不到此花費");
+        }
+
+        dbContext.Add(new ActivityLog
+        {
+            GroupId = groupId,
+            ActorUserId = userId,
+            ActionType = ActivityActionType.ExpenseDeleted,
+            TargetExpenseId = expense.Id,
+            Summary = $"刪除了花費「{expense.Name}」{StringFormatter.FormatMoney(expense.Currency, expense.Amount)}"
+        });
+
+        // 軟刪不會推進 UpdatedAt；不手動推進的話，同時進行的編輯拿著舊值仍能通過 concurrency token 的檢查
+        expense.UpdatedAt = DateTimeOffset.UtcNow;
+        dbContext.Remove(expense);
+
+        try
+        {
+            await dbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result.Failure(ResultCode.Conflict, ConcurrentChangeMessage);
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "刪除花費失敗。groupId: {GroupId}, expenseId: {ExpenseId}, userId: {UserId}", groupId, expenseId, userId);
+            return Result.Failure(ResultCode.InternalServerError, "資料儲存失敗");
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// 花費內容的驗證清單
+    /// </summary>
+    /// <returns>第一條不通過的規則所對應的 ValidationError</returns>
+    private async Task<Result> ValidateAsync(int groupId, ExpenseRequest request, Expense? existingExpense)
+    {
+        var currency = request.Currency!.Value;
+        int minorUnitDecimals = currency.MinorUnitDecimals();
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return Result.Failure(ResultCode.ValidationError, "請輸入花費名稱");
+        }
+
+        if (request.Amount is <= 0 or > MaxAmount)
+        {
+            return Result.Failure(ResultCode.ValidationError, $"金額須大於 0，且不超過 {MaxAmount.ToString("N2", CultureInfo.InvariantCulture)}");
+        }
+
+        if (!IsDateNotInFuture(request))
+        {
+            return Result.Failure(ResultCode.ValidationError, "消費日期不可為未來的日期");
+        }
+
+        if (request.Shares.Count == 0)
+        {
+            return Result.Failure(ResultCode.ValidationError, "請至少選擇一位參與者");
+        }
+
+        if (request.Shares.DistinctBy(share => share.MemberId).Count() != request.Shares.Count)
+        {
+            return Result.Failure(ResultCode.ValidationError, "參與者不可重複");
+        }
+
+        if (request.Shares.Any(share => share.Amount <= 0))
+        {
+            return Result.Failure(ResultCode.ValidationError, "每位參與者的分攤必須大於 0");
+        }
+
+        if (!FitsMinorUnit(request, minorUnitDecimals))
+        {
+            return Result.Failure(ResultCode.ValidationError, minorUnitDecimals == 0
+                ? $"{currency} 的金額與分攤必須是整數"
+                : $"{currency} 的金額與分攤最多 {minorUnitDecimals} 位小數");
+        }
+
+        if (request.Shares.Sum(share => share.Amount) != request.Amount)
+        {
+            return Result.Failure(ResultCode.ValidationError, "分攤加總必須等於花費金額");
+        }
+
+        // 只有這一條需要查資料庫，放在最後。
+        var eligibleMemberIds = await FindEligibleMemberIdsAsync(groupId, existingExpense);
+        var involvedMemberIds = request.Shares.Select(share => share.MemberId).Append(request.PayerId);
+
+        if (!involvedMemberIds.All(eligibleMemberIds.Contains))
+        {
+            return Result.Failure(ResultCode.ValidationError, "付款人與參與者必須是這個群組的現役成員");
+        }
+
+        return Result.Success();
+    }
+
+    /// <remarks>
+    /// 放寬到 UTC 的次日：消費日期是使用者當地的日曆日，比 UTC 快的時區在當地凌晨填今天，就是 UTC 的明天。
+    /// </remarks>
+    private static bool IsDateNotInFuture(ExpenseRequest request) => request.Date!.Value <= DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1);
+
+    /// <remarks>
+    /// 加總相等不代表每一筆都付得出去，有些幣別沒有小數。
+    /// </remarks>
+    private static bool FitsMinorUnit(ExpenseRequest request, int minorUnitDecimals)
+        => request.Shares.Select(share => share.Amount)
+                         .Append(request.Amount)
+                         .All(amount => decimal.Round(amount, minorUnitDecimals) == amount);
+
+    /// <summary>
+    /// 找出可以擔任付款人或參與者的成員：現役成員，加上這筆花費原本就有的成員
+    /// </summary>
+    private async Task<HashSet<int>> FindEligibleMemberIdsAsync(int groupId, Expense? existingExpense)
+    {
+        var eligibleMemberIds = await dbContext.GroupMembers.Where(member => member.GroupId == groupId)
+                                                            .Select(member => member.Id)
+                                                            .ToHashSetAsync();
+
+        if (existingExpense != null)
+        {
+            eligibleMemberIds.Add(existingExpense.PayerId);
+            eligibleMemberIds.UnionWith(existingExpense.ExpenseShares.Select(share => share.GroupMemberId));
+        }
+
+        return eligibleMemberIds;
+    }
+
+    /// <summary>
+    /// 取得「原幣 → 基準幣」的 Rate
+    /// </summary>
+    /// <returns>原幣等於基準幣時為 1，不查詢匯率；查不到時回 ExternalApiError</returns>
+    private async Task<Result<decimal>> ResolveRateAsync(CurrencyType currency, CurrencyType baseCurrency)
+    {
+        if (currency == baseCurrency)
+        {
+            return Result<decimal>.Success(1m);
+        }
+
+        var exchangeRate = await exchangeRateService.GetExchangeRateAsync(currency);
+
+        if (!exchangeRate.IsSuccess
+            || exchangeRate.Value == null
+            || !exchangeRate.Value.ConversionRates.TryGetValue(baseCurrency, out decimal rate))
+        {
+            return Result<decimal>.Failure(ResultCode.ExternalApiError, "目前無法取得匯率，請稍後再試");
+        }
+
+        return Result<decimal>.Success(Math.Round(rate, RateDecimals, MidpointRounding.AwayFromZero));
+    }
+
+    /// <summary>
+    /// 比較花費的現況與請求，組出編輯花費的動態敘述
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="shareChange"/> 是描述分攤變動的那一句，分攤沒有變動時傳入 null。
+    /// </remarks>
+    /// <returns>只寫有變動的欄位，順序固定；內容與現況完全相同時為 null</returns>
+    private async Task<string?> BuildUpdateSummaryAsync(int groupId, Expense expense, ExpenseRequest request, string? shareChange)
+    {
+        string name = request.Name.Trim();
+        var category = request.Category!.Value;
+        var currency = request.Currency!.Value;
+        var date = request.Date!.Value;
+
+        List<string> changes = [];
+
+        if (name != expense.Name)
+        {
+            changes.Add($"名稱改為「{name}」");
+        }
+
+        // 金額與原幣合成一個值比較，任一個變了就寫成一句
+        if (currency != expense.Currency || request.Amount != expense.Amount)
+        {
+            changes.Add($"金額由 {StringFormatter.FormatMoney(expense.Currency, expense.Amount)} 改為 {StringFormatter.FormatMoney(currency, request.Amount)}");
+        }
+
+        if (request.PayerId != expense.PayerId)
+        {
+            var memberNames = await FindMemberNamesAsync(groupId, [expense.PayerId, request.PayerId]);
+            changes.Add($"付款人由「{memberNames[expense.PayerId]}」改為「{memberNames[request.PayerId]}」");
+        }
+
+        if (category != expense.Category)
+        {
+            changes.Add($"分類由{expense.Category.GetDescription()}改為{category.GetDescription()}");
+        }
+
+        if (date != expense.Date)
+        {
+            changes.Add($"消費日期由 {StringFormatter.FormatDate(expense.Date)} 改為 {StringFormatter.FormatDate(date)}");
+        }
+
+        if (shareChange != null)
+        {
+            changes.Add(shareChange);
+        }
+
+        if (request.Description != expense.Description)
+        {
+            changes.Add("描述");
+        }
+
+        return changes.Count == 0
+            ? null
+            : $"修改了花費「{expense.Name}」：{string.Join("、", changes)}";
+    }
+
+    /// <summary>
+    /// 比較編輯前後的分攤，組出動態敘述中描述分攤變動的那一句
+    /// </summary>
+    /// <remarks>
+    /// 只寫發生了什麼，不逐人列出前後值，敘述的長度不可隨參與者人數成長。
+    /// </remarks>
+    /// <returns>分攤沒有變動時為 null</returns>
+    private static string? DescribeShareChange(IEnumerable<ExpenseShare> currentShares, IEnumerable<ExpenseShareRequest> requestedShares)
+    {
+        var before = currentShares.ToDictionary(share => share.GroupMemberId, share => share.Amount);
+        var after = requestedShares.ToDictionary(share => share.MemberId, share => share.Amount);
+
+        if (before.Count != after.Count)
+        {
+            return $"參與者由 {before.Count} 人改為 {after.Count} 人";
+        }
+
+        if (!before.Keys.All(after.ContainsKey))
+        {
+            return "參與者有更動";
+        }
+
+        if (before.Any(share => after[share.Key] != share.Value))
+        {
+            return "分攤金額有調整";
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 查出成員的顯示名稱，包含已移除成員
+    /// </summary>
+    private Task<Dictionary<int, string>> FindMemberNamesAsync(int groupId, IEnumerable<int> memberIds)
+        => dbContext.GroupMembers.IgnoreQueryFilters()
+                                 .Where(member => member.GroupId == groupId && memberIds.Contains(member.Id))
+                                 .ToDictionaryAsync(member => member.Id, member => member.DisplayName);
+
+    private static List<ExpenseShare> ToShares(IEnumerable<ExpenseShareRequest> shares)
+        => shares.Select(share => new ExpenseShare { GroupMemberId = share.MemberId, Amount = share.Amount }).ToList();
+
+    private static ExpenseResponse ToResponse(Expense expense) => new()
+    {
+        Id = expense.Id,
+        Name = expense.Name,
+        Description = expense.Description,
+        Category = expense.Category,
+        Currency = expense.Currency,
+        Amount = expense.Amount,
+        Rate = expense.Rate,
+        Date = expense.Date,
+        PayerId = expense.PayerId,
+        // 編輯存檔後，被作廢的舊分攤軟刪了仍留在已追蹤的集合裡
+        Shares = expense.ExpenseShares.Where(share => share.DeletedAt == null)
+                                      .OrderBy(share => share.GroupMemberId)
+                                      .Select(share => new ExpenseShareResponse { MemberId = share.GroupMemberId, Amount = share.Amount })
+                                      .ToList(),
+        CreatedAt = expense.CreatedAt
+    };
+}

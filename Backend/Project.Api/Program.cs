@@ -100,6 +100,7 @@ builder.Services.AddScoped<GroupService>();
 builder.Services.AddScoped<SettlementService>();
 builder.Services.AddScoped<GroupMemberService>();
 builder.Services.AddScoped<InviteService>();
+builder.Services.AddScoped<ExpenseService>();
 
 builder.Services.AddSharedAuth(builder.Configuration);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>

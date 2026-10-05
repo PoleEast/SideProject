@@ -126,6 +126,9 @@ namespace Project.Data
 
                 entity.Property(e => e.Rate).HasPrecision(18, 6);
 
+                // 一筆花費跨主表與分攤兩張表，以主表這一列當整筆花費的鎖
+                entity.Property(e => e.UpdatedAt).IsConcurrencyToken();
+
                 entity.HasOne(e => e.Group).WithMany(g => g.Expenses).HasForeignKey(e => e.GroupId)
                     .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.Payer).WithMany(gm => gm.PaidExpenses).HasForeignKey(e => e.PayerId)

@@ -35,6 +35,9 @@ public static class SplitBillSeeder
     /// <summary>晚餐花費的原幣總額，由三位成員均分</summary>
     public const decimal ExpenseAmount = 9000m;
 
+    /// <summary>晚餐花費鎖入的 JPY 對 TWD 匯率</summary>
+    public const decimal ExpenseRate = 0.212345m;
+
     /// <summary>
     /// 建立一個三人群組，含一筆由小明墊付、三人均分的花費
     /// </summary>
@@ -75,7 +78,7 @@ public static class SplitBillSeeder
             Category = ExpenseCategoryType.Food,
             Currency = CurrencyType.JPY,
             Amount = ExpenseAmount,
-            Rate = 0.212345m,
+            Rate = ExpenseRate,
             Date = new DateOnly(2026, 7, 1),
             CreatedByUserId = OwnerUserId
         });
@@ -104,7 +107,7 @@ public static class SplitBillSeeder
             ActorUserId = OwnerUserId,
             ActionType = ActivityActionType.ExpenseCreated,
             TargetExpenseId = ExpenseId,
-            Summary = "小明 新增了「晚餐 JPY 9,000」，由 3 人均分"
+            Summary = "新增了花費「晚餐」JPY 9,000，由「小明」付款，3 人分攤"
         });
 
         await context.SaveChangesAsync();

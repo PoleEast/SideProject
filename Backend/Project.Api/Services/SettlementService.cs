@@ -16,6 +16,7 @@ public class SettlementService(ApplicationDbContext dbContext)
     /// 取得群組捨入到基準幣最小單位後的兩兩淨額
     /// </summary>
     /// <param name="group">須已通過存取檢查；捨入位數取自它的基準幣</param>
+    /// <returns>兩兩淨額；捨入後為 0 的組合不列入</returns>
     public async Task<List<MemberBalance>> GetBalancesAsync(Group group)
     {
         // 參與者欠付款人「分攤額 × Rate」

@@ -5,9 +5,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Project.Shared.DTOs.SplitBill;
 
-/// <summary>
-/// 建立群組請求物件
-/// </summary>
 public class CreateGroupRequest
 {
     [Description("群組名稱")]

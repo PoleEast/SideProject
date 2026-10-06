@@ -15,9 +15,6 @@ namespace Project.Api.Services;
 /// </remarks>
 public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService> logger)
 {
-    /// <summary>
-    /// 以邀請碼預覽群組
-    /// </summary>
     public async Task<Result<InvitePreviewResponse>> PreviewAsync(string inviteCode, int userId)
     {
         var group = await FindGroupAsync(inviteCode);
@@ -56,6 +53,13 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
     /// <summary>
     /// 認領一位未綁定的既有成員
     /// </summary>
+    /// <param name="inviteCode">邀請碼</param>
+    /// <param name="memberId">要認領的成員 ID</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <returns>
+    /// 成功時為加入的群組；邀請碼無效或找不到成員回 NotFound；
+    /// 呼叫者已是成員、或該成員已被認領回 Conflict；儲存失敗回 InternalServerError
+    /// </returns>
     public async Task<Result<GroupResponse>> ClaimMemberAsync(string inviteCode, int memberId, int userId)
     {
         var joinableGroup = await FindJoinableGroupAsync(inviteCode, userId);
@@ -108,8 +112,16 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
     }
 
     /// <summary>
-    /// 名單中沒有自己的位置時，建立一位綁定自己的成員
+    /// 建立一位綁定呼叫者的新成員
     /// </summary>
+    /// <param name="inviteCode">邀請碼</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <param name="request">新成員的顯示名稱</param>
+    /// <returns>
+    /// 成功時為加入的群組；邀請碼無效回 NotFound；呼叫者已是成員回 Conflict；
+    /// 顯示名稱未通過 <see cref="MemberDisplayNameRules"/> 的驗證時回它的失敗結果；
+    /// 儲存失敗回 InternalServerError
+    /// </returns>
     public async Task<Result<GroupResponse>> JoinAsNewMemberAsync(string inviteCode, int userId, JoinAsNewMemberRequest request)
     {
         var joinableGroup = await FindJoinableGroupAsync(inviteCode, userId);
@@ -165,6 +177,9 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
     /// <remarks>
     /// 「已是成員」與 AccessibleBy 同一個判準。
     /// </remarks>
+    /// <param name="inviteCode">邀請碼</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <returns>成功時為該群組；邀請碼無效回 NotFound；呼叫者已是成員回 Conflict</returns>
     private async Task<Result<Group>> FindJoinableGroupAsync(string inviteCode, int userId)
     {
         var group = await FindGroupAsync(inviteCode);
@@ -188,6 +203,8 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
     /// <remarks>
     /// 先正規化再比對，不吃資料庫大小寫定序設定
     /// </remarks>
+    /// <param name="inviteCode">使用者輸入的邀請碼</param>
+    /// <returns>對應的群組；找不到時為 null</returns>
     private Task<Group?> FindGroupAsync(string inviteCode)
     {
         string normalizedCode = InviteCodeGenerator.Normalize(inviteCode);

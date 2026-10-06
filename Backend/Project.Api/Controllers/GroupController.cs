@@ -13,6 +13,9 @@ namespace Project.Api.Controllers;
 [Authorize]
 public class GroupController(GroupService service) : ControllerBase
 {
+    /// <summary>
+    /// 取得呼叫者參與的所有群組
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<List<GroupResponse>>> GetAll()
     {
@@ -30,6 +33,9 @@ public class GroupController(GroupService service) : ControllerBase
         };
     }
 
+    /// <summary>
+    /// 取得單一群組
+    /// </summary>
     [HttpGet("{id}")]
     public async Task<ActionResult<GroupResponse>> GetById(int id)
     {
@@ -48,6 +54,9 @@ public class GroupController(GroupService service) : ControllerBase
         };
     }
 
+    /// <summary>
+    /// 建立群組
+    /// </summary>
     [HttpPost]
     public async Task<ActionResult<GroupResponse>> Create(CreateGroupRequest request)
     {
@@ -87,6 +96,9 @@ public class GroupController(GroupService service) : ControllerBase
         };
     }
 
+    /// <summary>
+    /// 更新群組的名稱、描述與基準幣
+    /// </summary>
     [HttpPut("{id}")]
     public async Task<ActionResult<GroupResponse>> Update(int id, UpdateGroupRequest request)
     {
@@ -126,6 +138,9 @@ public class GroupController(GroupService service) : ControllerBase
         };
     }
 
+    /// <summary>
+    /// 刪除群組
+    /// </summary>
     [HttpDelete("{id}")]
     public async Task<ActionResult> Delete(int id)
     {

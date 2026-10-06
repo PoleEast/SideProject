@@ -3,9 +3,6 @@ using System.ComponentModel;
 
 namespace Project.Shared.DTOs.SplitBill;
 
-/// <summary>
-/// 花費回應物件
-/// </summary>
 public class ExpenseResponse
 {
     [Description("資源ID")]
@@ -42,9 +39,6 @@ public class ExpenseResponse
     public DateTimeOffset CreatedAt { get; set; }
 }
 
-/// <summary>
-/// 花費中的一筆分攤
-/// </summary>
 public class ExpenseShareResponse
 {
     [Description("參與者的成員ID")]

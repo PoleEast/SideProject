@@ -11,20 +11,8 @@ namespace Project.Data.Model
         public int OwnerUserId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
-
-        /// <summary>
-        /// 基準幣
-        /// </summary>
         public CurrencyType BaseCurrency { get; set; }
-
-        /// <summary>
-        /// 邀請碼
-        /// </summary>
         public string InviteCode { get; set; } = string.Empty;
-
-        /// <summary>
-        /// 已結束時間
-        /// </summary>
         public DateTimeOffset? ClosedAt { get; set; }
 
         public DateTimeOffset CreatedAt { get; set; }

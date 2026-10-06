@@ -53,6 +53,7 @@ public static class SettlementCalculator
     /// <summary>
     /// 把分錄的方向編碼成正負號
     /// </summary>
+    /// <param name="entry">要編碼的分錄</param>
     /// <returns>鍵固定為 (較小Id, 較大Id)；正值代表較小Id 欠較大Id</returns>
     private static SignedEntry ToSignedEntry(BalanceEntry entry) =>
         entry.DebtorMemberId < entry.CreditorMemberId
@@ -62,6 +63,9 @@ public static class SettlementCalculator
     /// <summary>
     /// <see cref="ToSignedEntry"/> 的反向 - 把正負號解回欠款方向
     /// </summary>
+    /// <param name="pair">成員組合，固定為 (較小Id, 較大Id)</param>
+    /// <param name="net">帶正負號的淨額，正值代表較小Id 欠較大Id</param>
+    /// <returns>金額恆為正的兩兩淨額，欠款方向由正負號決定</returns>
     private static MemberBalance ToMemberBalance(MemberPair pair, decimal net) =>
         net > 0
             ? new MemberBalance(pair.LowMemberId, pair.HighMemberId, net)

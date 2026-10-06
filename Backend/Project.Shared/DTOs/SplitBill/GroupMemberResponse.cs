@@ -2,9 +2,6 @@ using System.ComponentModel;
 
 namespace Project.Shared.DTOs.SplitBill;
 
-/// <summary>
-/// 群組成員回應物件
-/// </summary>
 public class GroupMemberResponse
 {
     [Description("資源ID")]

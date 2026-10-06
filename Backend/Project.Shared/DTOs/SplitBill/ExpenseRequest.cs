@@ -5,9 +5,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Project.Shared.DTOs.SplitBill;
 
-/// <summary>
-/// 花費內容請求物件，建立與編輯共用
-/// </summary>
 public class ExpenseRequest
 {
     [Description("花費名稱")]
@@ -42,9 +39,6 @@ public class ExpenseRequest
     public List<ExpenseShareRequest> Shares { get; set; } = [];
 }
 
-/// <summary>
-/// 花費內容中的一筆分攤
-/// </summary>
 public class ExpenseShareRequest
 {
     [Description("參與者的成員ID")]

@@ -2,9 +2,6 @@ using System.ComponentModel;
 
 namespace Project.Shared.DTOs.SplitBill;
 
-/// <summary>
-/// 邀請碼預覽回應物件
-/// </summary>
 public class InvitePreviewResponse
 {
     [Description("群組ID")]
@@ -23,9 +20,6 @@ public class InvitePreviewResponse
     public List<InvitePreviewMemberResponse> Members { get; set; } = [];
 }
 
-/// <summary>
-/// 邀請碼預覽中的成員
-/// </summary>
 public class InvitePreviewMemberResponse
 {
     [Description("成員ID")]

@@ -3,9 +3,6 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Project.Shared.DTOs.SplitBill;
 
-/// <summary>
-/// 批次新增成員請求物件
-/// </summary>
 public class AddGroupMembersRequest
 {
     [Description("顯示名稱清單")]

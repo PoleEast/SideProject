@@ -13,9 +13,6 @@ namespace Project.Api.Services;
 
 public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService exchangeRateService, ILogger<ExpenseService> logger)
 {
-    /// <summary>
-    /// 寫入時這筆花費已被別人改過的回傳訊息
-    /// </summary>
     private const string ConcurrentChangeMessage = "這筆花費剛被其他人修改，請重新整理後再試";
 
     /// <summary>
@@ -121,6 +118,15 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
     /// <summary>
     /// 以請求的內容覆蓋整筆花費
     /// </summary>
+    /// <param name="groupId">花費所屬群組的 ID</param>
+    /// <param name="expenseId">要編輯的花費 ID</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <param name="request">新的花費內容，必填欄位須已有值</param>
+    /// <returns>
+    /// 成功時為編輯後的花費，內容與現況相同時不寫入；群組不存在、呼叫者不是成員、或找不到花費回 NotFound；
+    /// 內容未通過驗證回 ValidationError；原幣有變更但查不到匯率回 ExternalApiError；
+    /// 花費同時被其他人修改回 Conflict；儲存失敗回 InternalServerError
+    /// </returns>
     public async Task<Result<ExpenseResponse>> UpdateExpenseAsync(int groupId, int expenseId, int userId, ExpenseRequest request)
     {
         var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
@@ -217,9 +223,19 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
         return Result<ExpenseResponse>.Success(ToResponse(expense));
     }
 
+    /// <summary>
+    /// 刪除花費
+    /// </summary>
     /// <remarks>
     /// 分攤無須逐一軟刪，query filter 已串接花費的軟刪欄位。
     /// </remarks>
+    /// <param name="groupId">花費所屬群組的 ID</param>
+    /// <param name="expenseId">要刪除的花費 ID</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <returns>
+    /// 刪除完成時為成功；群組不存在、呼叫者不是成員、或找不到花費回 NotFound；
+    /// 花費同時被其他人修改回 Conflict；儲存失敗回 InternalServerError
+    /// </returns>
     public async Task<Result> DeleteExpenseAsync(int groupId, int expenseId, int userId)
     {
         bool isAccessible = await dbContext.Groups.AccessibleBy(userId).AnyAsync(storedGroup => storedGroup.Id == groupId);
@@ -267,9 +283,12 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
     }
 
     /// <summary>
-    /// 花費內容的驗證清單
+    /// 驗證花費內容
     /// </summary>
-    /// <returns>第一條不通過的規則所對應的 ValidationError</returns>
+    /// <param name="groupId">花費所屬群組的 ID</param>
+    /// <param name="request">要驗證的花費內容，必填欄位須已有值</param>
+    /// <param name="existingExpense">這份內容要取代的既有花費，須已載入分攤；內容屬於新花費時為 null</param>
+    /// <returns>全部通過時為成功；否則回 ValidationError，訊息是第一條不通過的規則</returns>
     private async Task<Result> ValidateAsync(int groupId, ExpenseRequest request, Expense? existingExpense)
     {
         var currency = request.Currency!.Value;
@@ -329,22 +348,36 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
         return Result.Success();
     }
 
+    /// <summary>
+    /// 判斷消費日期是否不在未來
+    /// </summary>
     /// <remarks>
     /// 放寬到 UTC 的次日：消費日期是使用者當地的日曆日，比 UTC 快的時區在當地凌晨填今天，就是 UTC 的明天。
     /// </remarks>
+    /// <param name="request">要檢查的花費內容，消費日期須已有值</param>
+    /// <returns>消費日期不晚於 UTC 的次日時為 true</returns>
     private static bool IsDateNotInFuture(ExpenseRequest request) => request.Date!.Value <= DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1);
 
+    /// <summary>
+    /// 判斷金額與每一筆分攤是否都是幣別最小單位的整數倍
+    /// </summary>
     /// <remarks>
     /// 加總相等不代表每一筆都付得出去，有些幣別沒有小數。
     /// </remarks>
+    /// <param name="request">要檢查的花費內容</param>
+    /// <param name="minorUnitDecimals">幣別最小單位的小數位數</param>
+    /// <returns>金額與每一筆分攤的小數位數都不超過 <paramref name="minorUnitDecimals"/> 時為 true</returns>
     private static bool FitsMinorUnit(ExpenseRequest request, int minorUnitDecimals)
         => request.Shares.Select(share => share.Amount)
                          .Append(request.Amount)
                          .All(amount => decimal.Round(amount, minorUnitDecimals) == amount);
 
     /// <summary>
-    /// 找出可以擔任付款人或參與者的成員：現役成員，加上這筆花費原本就有的成員
+    /// 找出可以擔任付款人或參與者的成員
     /// </summary>
+    /// <param name="groupId">群組 ID</param>
+    /// <param name="existingExpense">既有的花費，須已載入分攤；沒有時為 null</param>
+    /// <returns>群組現役成員的 ID，加上 <paramref name="existingExpense"/> 原本的付款人與參與者的 ID（即使他們已被移除）</returns>
     private async Task<HashSet<int>> FindEligibleMemberIdsAsync(int groupId, Expense? existingExpense)
     {
         var eligibleMemberIds = await dbContext.GroupMembers.Where(member => member.GroupId == groupId)
@@ -363,7 +396,12 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
     /// <summary>
     /// 取得「原幣 → 基準幣」的 Rate
     /// </summary>
-    /// <returns>原幣等於基準幣時為 1，不查詢匯率；查不到時回 ExternalApiError</returns>
+    /// <param name="currency">原幣</param>
+    /// <param name="baseCurrency">基準幣</param>
+    /// <returns>
+    /// 成功時為捨入到 <see cref="RateDecimals"/> 位小數的 Rate，原幣等於基準幣時為 1 且不查詢匯率；
+    /// 查不到匯率時回 ExternalApiError
+    /// </returns>
     private async Task<Result<decimal>> ResolveRateAsync(CurrencyType currency, CurrencyType baseCurrency)
     {
         if (currency == baseCurrency)
@@ -386,9 +424,10 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
     /// <summary>
     /// 比較花費的現況與請求，組出編輯花費的動態敘述
     /// </summary>
-    /// <remarks>
-    /// <paramref name="shareChange"/> 是描述分攤變動的那一句，分攤沒有變動時傳入 null。
-    /// </remarks>
+    /// <param name="groupId">花費所屬群組的 ID</param>
+    /// <param name="expense">花費的現況</param>
+    /// <param name="request">新的花費內容，必填欄位須已有值</param>
+    /// <param name="shareChange">描述分攤變動的那一句，分攤沒有變動時為 null</param>
     /// <returns>只寫有變動的欄位，順序固定；內容與現況完全相同時為 null</returns>
     private async Task<string?> BuildUpdateSummaryAsync(int groupId, Expense expense, ExpenseRequest request, string? shareChange)
     {
@@ -447,7 +486,9 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
     /// <remarks>
     /// 只寫發生了什麼，不逐人列出前後值，敘述的長度不可隨參與者人數成長。
     /// </remarks>
-    /// <returns>分攤沒有變動時為 null</returns>
+    /// <param name="currentShares">編輯前的分攤</param>
+    /// <param name="requestedShares">編輯後的分攤</param>
+    /// <returns>描述變動的一句話；分攤沒有變動時為 null</returns>
     private static string? DescribeShareChange(IEnumerable<ExpenseShare> currentShares, IEnumerable<ExpenseShareRequest> requestedShares)
     {
         var before = currentShares.ToDictionary(share => share.GroupMemberId, share => share.Amount);
@@ -474,6 +515,9 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
     /// <summary>
     /// 查出成員的顯示名稱，包含已移除成員
     /// </summary>
+    /// <param name="groupId">成員所屬群組的 ID</param>
+    /// <param name="memberIds">要查的成員 ID</param>
+    /// <returns>成員 ID 對應顯示名稱的字典；不屬於這個群組的 ID 不在其中</returns>
     private Task<Dictionary<int, string>> FindMemberNamesAsync(int groupId, IEnumerable<int> memberIds)
         => dbContext.GroupMembers.IgnoreQueryFilters()
                                  .Where(member => member.GroupId == groupId && memberIds.Contains(member.Id))

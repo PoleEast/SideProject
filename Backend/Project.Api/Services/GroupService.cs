@@ -15,6 +15,9 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
     /// <summary>
     /// 建立群組，並將建立者加入為第一位成員
     /// </summary>
+    /// <param name="userId">建立者的使用者 ID</param>
+    /// <param name="request">群組內容，必填欄位須已有值</param>
+    /// <returns>成功時為建立好的群組；使用者不存在回 Unauthorized；儲存失敗回 InternalServerError</returns>
     public async Task<Result<GroupResponse>> CreateGroupAsync(int userId, CreateGroupRequest request)
     {
         string? userName = await dbContext.Users
@@ -64,9 +67,6 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
         return Result<GroupResponse>.Success(group.Adapt<GroupResponse>());
     }
 
-    /// <summary>
-    /// 取得使用者參與的所有群組
-    /// </summary>
     public async Task<Result<List<GroupResponse>>> GetMyGroupsAsync(int userId)
     {
         var groups = await dbContext.Groups.AccessibleBy(userId).ToListAsync();
@@ -74,9 +74,6 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
         return Result<List<GroupResponse>>.Success(groups.Adapt<List<GroupResponse>>());
     }
 
-    /// <summary>
-    /// 取得單一群組
-    /// </summary>
     public async Task<Result<GroupResponse>> GetGroupByIdAsync(int groupId, int userId)
     {
         var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
@@ -97,6 +94,13 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
     /// 基準幣一變則全數失效，而重抓當前匯率會違反「Rate 代表消費發生當時的事實」；
     /// 還款金額本身就以基準幣記錄，同樣會跟著失去意義。
     /// </remarks>
+    /// <param name="groupId">群組 ID</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <param name="request">要更新的內容，為 null 的欄位不變更</param>
+    /// <returns>
+    /// 成功時為更新後的群組，內容沒有變動時不寫入；群組不存在或呼叫者不是成員回 NotFound；
+    /// 已有花費或還款卻要變更基準幣回 BusinessRuleViolation；儲存失敗回 InternalServerError
+    /// </returns>
     public async Task<Result<GroupResponse>> UpdateGroupAsync(int groupId, int userId, UpdateGroupRequest request)
     {
         var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
@@ -183,6 +187,12 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
     /// 不檢查未結清淨額或成員數 —— 「已結束」已吸收「想從首頁收起來但保留資料」的需求。
     /// 下游資料無須逐一軟刪，query filter 已串接群組的軟刪欄位。
     /// </remarks>
+    /// <param name="groupId">群組 ID</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <returns>
+    /// 刪除完成時為成功；群組不存在或呼叫者不是成員回 NotFound；
+    /// 呼叫者不是擁有者回 Forbidden；儲存失敗回 InternalServerError
+    /// </returns>
     public async Task<Result> DeleteGroupAsync(int groupId, int userId)
     {
         var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
@@ -225,9 +235,16 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
     /// 設定群組的已結束狀態
     /// </summary>
     /// <remarks>
-    /// 已結束只影響前端分區，不限制任何操作 —— 結束後仍可新增花費、記錄還款、查看結算。
-    /// 由呼叫端帶目標狀態：任何成員都能操作。
+    /// 已結束不限制任何操作 —— 結束後仍可新增花費、記錄還款、查看結算。
+    /// 狀態由請求指定：任何成員都能操作。
     /// </remarks>
+    /// <param name="groupId">群組 ID</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <param name="request">目標狀態，必填欄位須已有值</param>
+    /// <returns>
+    /// 成功時為設定後的群組，狀態已相符時不寫入；群組不存在或呼叫者不是成員回 NotFound；
+    /// 儲存失敗回 InternalServerError
+    /// </returns>
     public async Task<Result<GroupResponse>> SetGroupClosedAsync(int groupId, int userId, SetGroupClosedRequest request)
     {
         var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
@@ -277,6 +294,12 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
     /// 邀請碼本身即憑證，持有即可加入，因此重置是舊碼外流後唯一的撤銷手段。
     /// 任何成員皆可重置 —— 擁有者註銷帳號後仍須有人能撤銷外流的碼，是誰重置的由動態記錄。
     /// </remarks>
+    /// <param name="groupId">群組 ID</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <returns>
+    /// 成功時為換上新邀請碼的群組；群組不存在或呼叫者不是成員回 NotFound；
+    /// 儲存失敗回 InternalServerError
+    /// </returns>
     public async Task<Result<GroupResponse>> ResetInviteCodeAsync(int groupId, int userId)
     {
         var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);

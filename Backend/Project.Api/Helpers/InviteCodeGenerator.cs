@@ -12,7 +12,6 @@ public static class InviteCodeGenerator
 {
     public const int CodeLength = 8;
 
-    /// <summary>可用字元</summary>
     public const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
     /// <summary>
@@ -22,10 +21,12 @@ public static class InviteCodeGenerator
     public static string Generate() => RandomNumberGenerator.GetString(Alphabet, CodeLength);
 
     /// <summary>
-    /// 將使用者輸入的邀請碼整理成 <see cref="Alphabet"/> 的形式
+    /// 將邀請碼整理成 <see cref="Alphabet"/> 的形式
     /// </summary>
     /// <remarks>
     /// <see cref="Alphabet"/> 只有大寫英數，去除前後空白並轉為大寫。
     /// </remarks>
+    /// <param name="inviteCode">使用者輸入的邀請碼</param>
+    /// <returns>去除前後空白並轉為大寫的邀請碼</returns>
     public static string Normalize(string inviteCode) => inviteCode.Trim().ToUpperInvariant();
 }

@@ -3,9 +3,6 @@ using System.ComponentModel;
 
 namespace Project.Shared.DTOs.SplitBill;
 
-/// <summary>
-/// 群組回應物件
-/// </summary>
 public class GroupResponse
 {
     [Description("資源ID")]
@@ -26,9 +23,6 @@ public class GroupResponse
     [Description("擁有者的使用者ID")]
     public int OwnerUserId { get; set; }
 
-    /// <summary>
-    /// 已結束時間。有值代表已結束，僅影響前端分區，不限制任何操作
-    /// </summary>
     [Description("已結束時間")]
     public DateTimeOffset? ClosedAt { get; set; }
 

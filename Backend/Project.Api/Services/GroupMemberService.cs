@@ -19,14 +19,14 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
     /// </remarks>
     public const int MaxMembersPerBatch = 10;
 
-    /// <summary>
-    /// 寫入時該位置的綁定已被別人改變的回傳訊息
-    /// </summary>
     private const string ConcurrentChangeMessage = "成員資料剛被其他人修改，請重新整理後再試";
 
     /// <summary>
     /// 取得群組的所有成員，包含已移除者
     /// </summary>
+    /// <param name="groupId">群組 ID</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <returns>成功時為依 ID 排序的成員；群組不存在或呼叫者不是成員回 NotFound</returns>
     public async Task<Result<List<GroupMemberResponse>>> GetMembersAsync(int groupId, int userId)
     {
         var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
@@ -54,6 +54,15 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
     /// <remarks>
     /// 全部成功或全部失敗，一次請求只寫一筆ActivityLog。
     /// </remarks>
+    /// <param name="groupId">群組 ID</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <param name="request">要新增的顯示名稱</param>
+    /// <returns>
+    /// 成功時為新增的成員；人數不在 1~<see cref="MaxMembersPerBatch"/> 之間回 ValidationError；
+    /// 群組不存在或呼叫者不是成員回 NotFound；
+    /// 顯示名稱未通過 <see cref="MemberDisplayNameRules"/> 的驗證時回它的失敗結果；
+    /// 儲存失敗回 InternalServerError
+    /// </returns>
     public async Task<Result<List<GroupMemberResponse>>> AddMembersAsync(int groupId, int userId, AddGroupMembersRequest request)
     {
         if (request.DisplayNames.Count is 0 or > MaxMembersPerBatch)
@@ -108,9 +117,6 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
         return Result<List<GroupMemberResponse>>.Success(result);
     }
 
-    /// <summary>
-    /// 修改成員的顯示名稱
-    /// </summary>
     public async Task<Result<GroupMemberResponse>> RenameMemberAsync(
         int groupId, int memberId, int userId, RenameGroupMemberRequest request)
     {
@@ -178,9 +184,6 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
         return Result<GroupMemberResponse>.Success(result);
     }
 
-    /// <summary>
-    /// 移除成員
-    /// </summary>
     public async Task<Result> RemoveMemberAsync(int groupId, int memberId, int userId)
     {
         var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
@@ -262,6 +265,14 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
     /// <summary>
     /// 解除成員的帳號綁定，位置與帳目保留
     /// </summary>
+    /// <param name="groupId">群組 ID</param>
+    /// <param name="memberId">要解除綁定的成員 ID</param>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <returns>
+    /// 解除完成、或成員原本就未綁定時為成功；群組不存在、呼叫者不是成員、或找不到成員回 NotFound；
+    /// 對象是擁有者回 BusinessRuleViolation；成員同時被其他人修改回 Conflict；
+    /// 儲存失敗回 InternalServerError
+    /// </returns>
     public async Task<Result> UnbindMemberAsync(int groupId, int memberId, int userId)
     {
         var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);

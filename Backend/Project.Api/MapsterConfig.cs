@@ -146,7 +146,6 @@ namespace Project.Api
                 .Map(d => d.Description, s => s.Description)
                 .Map(d => d.BaseCurrency, s => s.BaseCurrency)
                 .Map(d => d.InviteCode, s => s.InviteCode)
-                .Map(d => d.OwnerUserId, s => s.OwnerUserId)
                 .Map(d => d.ClosedAt, s => s.ClosedAt)
                 .Map(d => d.CreatedAt, s => s.CreatedAt);
 

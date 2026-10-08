@@ -20,9 +20,6 @@ public class GroupResponse
     [Description("邀請碼")]
     public string InviteCode { get; set; } = string.Empty;
 
-    [Description("擁有者的使用者ID")]
-    public int OwnerUserId { get; set; }
-
     [Description("已結束時間")]
     public DateTimeOffset? ClosedAt { get; set; }
 

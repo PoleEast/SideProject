@@ -522,4 +522,32 @@ public class InviteServiceTests
     }
 
     #endregion
+
+    #region 存取
+
+    [Fact(DisplayName = "存取：邀請碼重置後，持舊碼認領與以新成員加入皆回 NotFound，資料不變")]
+    public async Task ClaimAndJoin_InviteCodeAlreadyReset_ReturnNotFound()
+    {
+        // Arrange - 種子的邀請碼已被重置
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.AddUserAsync(context, AmyUserId, "陳怡安");
+        var groupService = new GroupService(context, NullLogger<GroupService>.Instance);
+        await groupService.ResetInviteCodeAsync(GroupId, SplitBillSeeder.OwnerUserId);
+        var service = CreateService(context);
+
+        // Act
+        var claim = await service.ClaimMemberAsync(InviteCode, AmyMemberId, AmyUserId);
+        var join = await service.JoinAsNewMemberAsync(InviteCode, AmyUserId, JoinRequest("Amy Chen"));
+
+        // Assert - 邀請碼本身即憑證，重置是唯一的撤銷手段
+        Assert.Equal(ResultCode.NotFound, claim.Code);
+        Assert.Equal(ResultCode.NotFound, join.Code);
+        Assert.Equal(ResultCode.NotFound, await SplitBillAccess.ReadSeededGroupAsync(context, AmyUserId));
+        Assert.Equal(SplitBillSeeder.MemberCount, await context.GroupMembers.CountAsync(Ct));
+        Assert.False(await context.ActivityLogs.AnyAsync(
+            log => log.ActionType == ActivityActionType.MemberClaimed || log.ActionType == ActivityActionType.MemberJoined, Ct));
+    }
+
+    #endregion
 }

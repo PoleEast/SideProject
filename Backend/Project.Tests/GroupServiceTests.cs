@@ -447,6 +447,23 @@ public class GroupServiceTests
 
     #region 擁有者特權
 
+    [Fact(DisplayName = "刪除群組：非成員回 NotFound 而非 Forbidden")]
+    public async Task DeleteGroup_NotAMember_ReturnsNotFound()
+    {
+        // Arrange - 群組存在，但 Amy 不是成員
+        using var context = DbContextTestHelper.CreateContext();
+        await SeedUsersAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateGroupAsync(MingUserId, NewGroupRequest());
+
+        // Act
+        var result = await service.DeleteGroupAsync(created.Value!.Id, AmyUserId);
+
+        // Assert - 存取檢查先於擁有者檢查：非成員若得到 403，就能分辨出這個群組存在
+        Assert.Equal(ResultCode.NotFound, result.Code);
+        Assert.Single(await context.Groups.ToListAsync(Ct));
+    }
+
     [Fact(DisplayName = "刪除群組：非擁有者的成員回 Forbidden")]
     public async Task DeleteGroup_NotOwner_ReturnsForbidden()
     {

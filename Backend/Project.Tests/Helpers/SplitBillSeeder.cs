@@ -38,6 +38,9 @@ public static class SplitBillSeeder
     /// <summary>晚餐花費鎖入的 JPY 對 TWD 匯率</summary>
     public const decimal ExpenseRate = 0.212345m;
 
+    /// <summary>Amy 還給小明 TWD 500 的那筆還款</summary>
+    public const int SettlementId = 1;
+
     /// <summary>
     /// 建立一個三人群組，含一筆由小明墊付、三人均分的花費
     /// </summary>
@@ -91,7 +94,7 @@ public static class SplitBillSeeder
 
         context.Settlements.Add(new Settlement
         {
-            Id = 1,
+            Id = SettlementId,
             GroupId = GroupId,
             FromMemberId = AmyMemberId,
             ToMemberId = MingMemberId,

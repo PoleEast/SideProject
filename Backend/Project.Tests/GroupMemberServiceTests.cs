@@ -26,7 +26,7 @@ public class GroupMemberServiceTests
     private const int GroupId = SplitBillSeeder.GroupId;
 
     private static GroupMemberService CreateService(ApplicationDbContext context)
-        => new(context, new SettlementService(context), NullLogger<GroupMemberService>.Instance);
+        => new(context, new SettlementService(context, NullLogger<SettlementService>.Instance), NullLogger<GroupMemberService>.Instance);
 
     private const int MeiUserId = 2;
 

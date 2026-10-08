@@ -12,12 +12,12 @@ namespace Project.Data.Model
         public int GroupId { get; set; }
 
         /// <summary>
-        /// 還錢的一方
+        /// 還款人
         /// </summary>
         public int FromMemberId { get; set; }
 
         /// <summary>
-        /// 收錢的一方
+        /// 收款人
         /// </summary>
         public int ToMemberId { get; set; }
 

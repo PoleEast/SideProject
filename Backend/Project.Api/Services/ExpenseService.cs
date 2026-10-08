@@ -23,14 +23,6 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
     /// </remarks>
     private const int RateDecimals = 6;
 
-    /// <summary>
-    /// 花費金額的上限
-    /// </summary>
-    /// <remarks>
-    /// 遠低於金額欄位的容量，超出時回驗證錯誤，而不是讓資料庫溢位。
-    /// </remarks>
-    private const decimal MaxAmount = 999999999.99m;
-
     public async Task<Result<List<ExpenseResponse>>> GetExpensesAsync(int groupId, int userId)
     {
         bool isAccessible = await dbContext.Groups.AccessibleBy(userId).AnyAsync(storedGroup => storedGroup.Id == groupId);
@@ -88,7 +80,7 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
             ExpenseShares = ToShares(request.Shares)
         };
 
-        var memberNames = await FindMemberNamesAsync(groupId, [expense.PayerId]);
+        var memberNames = await dbContext.GroupMembers.FindDisplayNamesAsync(groupId, [expense.PayerId]);
 
         dbContext.Add(expense);
 
@@ -299,12 +291,12 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
             return Result.Failure(ResultCode.ValidationError, "請輸入花費名稱");
         }
 
-        if (request.Amount is <= 0 or > MaxAmount)
+        if (!AmountRules.IsInRange(request.Amount))
         {
-            return Result.Failure(ResultCode.ValidationError, $"金額須大於 0，且不超過 {MaxAmount.ToString("N2", CultureInfo.InvariantCulture)}");
+            return Result.Failure(ResultCode.ValidationError, $"金額須大於 0，且不超過 {AmountRules.Max.ToString("N2", CultureInfo.InvariantCulture)}");
         }
 
-        if (!IsDateNotInFuture(request))
+        if (!CalendarDateRules.IsNotInFuture(request.Date!.Value))
         {
             return Result.Failure(ResultCode.ValidationError, "消費日期不可為未來的日期");
         }
@@ -324,7 +316,10 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
             return Result.Failure(ResultCode.ValidationError, "每位參與者的分攤必須大於 0");
         }
 
-        if (!FitsMinorUnit(request, minorUnitDecimals))
+        // 加總相等不代表每一筆都付得出去，金額與每一筆分攤都要檢查
+        var amounts = request.Shares.Select(share => share.Amount).Append(request.Amount);
+
+        if (!amounts.All(amount => AmountRules.FitsMinorUnit(amount, currency)))
         {
             return Result.Failure(ResultCode.ValidationError, minorUnitDecimals == 0
                 ? $"{currency} 的金額與分攤必須是整數"
@@ -347,30 +342,6 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
 
         return Result.Success();
     }
-
-    /// <summary>
-    /// 判斷消費日期是否不在未來
-    /// </summary>
-    /// <remarks>
-    /// 放寬到 UTC 的次日：消費日期是使用者當地的日曆日，比 UTC 快的時區在當地凌晨填今天，就是 UTC 的明天。
-    /// </remarks>
-    /// <param name="request">要檢查的花費內容，消費日期須已有值</param>
-    /// <returns>消費日期不晚於 UTC 的次日時為 true</returns>
-    private static bool IsDateNotInFuture(ExpenseRequest request) => request.Date!.Value <= DateOnly.FromDateTime(DateTime.UtcNow).AddDays(1);
-
-    /// <summary>
-    /// 判斷金額與每一筆分攤是否都是幣別最小單位的整數倍
-    /// </summary>
-    /// <remarks>
-    /// 加總相等不代表每一筆都付得出去，有些幣別沒有小數。
-    /// </remarks>
-    /// <param name="request">要檢查的花費內容</param>
-    /// <param name="minorUnitDecimals">幣別最小單位的小數位數</param>
-    /// <returns>金額與每一筆分攤的小數位數都不超過 <paramref name="minorUnitDecimals"/> 時為 true</returns>
-    private static bool FitsMinorUnit(ExpenseRequest request, int minorUnitDecimals)
-        => request.Shares.Select(share => share.Amount)
-                         .Append(request.Amount)
-                         .All(amount => decimal.Round(amount, minorUnitDecimals) == amount);
 
     /// <summary>
     /// 找出可以擔任付款人或參與者的成員
@@ -451,7 +422,7 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
 
         if (request.PayerId != expense.PayerId)
         {
-            var memberNames = await FindMemberNamesAsync(groupId, [expense.PayerId, request.PayerId]);
+            var memberNames = await dbContext.GroupMembers.FindDisplayNamesAsync(groupId, [expense.PayerId, request.PayerId]);
             changes.Add($"付款人由「{memberNames[expense.PayerId]}」改為「{memberNames[request.PayerId]}」");
         }
 
@@ -511,17 +482,6 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
 
         return null;
     }
-
-    /// <summary>
-    /// 查出成員的顯示名稱，包含已移除成員
-    /// </summary>
-    /// <param name="groupId">成員所屬群組的 ID</param>
-    /// <param name="memberIds">要查的成員 ID</param>
-    /// <returns>成員 ID 對應顯示名稱的字典；不屬於這個群組的 ID 不在其中</returns>
-    private Task<Dictionary<int, string>> FindMemberNamesAsync(int groupId, IEnumerable<int> memberIds)
-        => dbContext.GroupMembers.IgnoreQueryFilters()
-                                 .Where(member => member.GroupId == groupId && memberIds.Contains(member.Id))
-                                 .ToDictionaryAsync(member => member.Id, member => member.DisplayName);
 
     private static List<ExpenseShare> ToShares(IEnumerable<ExpenseShareRequest> shares)
         => shares.Select(share => new ExpenseShare { GroupMemberId = share.MemberId, Amount = share.Amount }).ToList();

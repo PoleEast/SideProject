@@ -41,6 +41,8 @@ namespace Project.Shared.Types
         [Description("以新成員加入")]
         MemberJoined,
         [Description("解除綁定")]
-        MemberUnbound
+        MemberUnbound,
+        [Description("刪除還款")]
+        SettlementDeleted
     }
 }

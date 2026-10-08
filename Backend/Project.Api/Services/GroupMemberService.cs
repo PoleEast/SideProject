@@ -206,7 +206,7 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
         }
 
         // 每一組兩兩淨額都要為 0，總和為 0 不算數
-        var balances = await settlementService.GetBalancesAsync(group);
+        var balances = await settlementService.DeriveBalancesAsync(group);
         var counterpartIds = balances
             .Where(balance => balance.DebtorMemberId == memberId || balance.CreditorMemberId == memberId)
             .Select(balance => balance.DebtorMemberId == memberId ? balance.CreditorMemberId : balance.DebtorMemberId)

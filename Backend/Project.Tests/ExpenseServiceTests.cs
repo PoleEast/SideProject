@@ -88,11 +88,10 @@ public class ExpenseServiceTests
     /// 經由結算服務讀取種子群組的兩兩淨額
     /// </summary>
     private static async Task<List<MemberBalance>> ReadBalancesAsync(ApplicationDbContext context)
-    {
-        var group = await context.Groups.AsNoTracking().SingleAsync(group => group.Id == GroupId, Ct);
+        => (await CreateSettlementService(context).GetBalancesAsync(GroupId, OwnerUserId)).Value!;
 
-        return await new SettlementService(context).GetBalancesAsync(group);
-    }
+    private static SettlementService CreateSettlementService(ApplicationDbContext context)
+        => new(context, NullLogger<SettlementService>.Instance);
 
     private static async Task<int> CountExpensesAsync(ApplicationDbContext context)
         => (await CreateService(context).GetExpensesAsync(GroupId, OwnerUserId)).Value!.Count;
@@ -175,7 +174,7 @@ public class ExpenseServiceTests
         });
         await context.SaveChangesAsync(Ct);
 
-        var memberService = new GroupMemberService(context, new SettlementService(context), NullLogger<GroupMemberService>.Instance);
+        var memberService = new GroupMemberService(context, CreateSettlementService(context), NullLogger<GroupMemberService>.Instance);
         Assert.True((await memberService.RemoveMemberAsync(GroupId, AmyMemberId, OwnerUserId)).IsSuccess);
     }
 

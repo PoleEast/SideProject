@@ -62,6 +62,7 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
     /// <returns>
     /// 成功時為新增的成員；人數不在 1~<see cref="MaxMembersPerBatch"/> 之間回 ValidationError；
     /// 群組不存在或呼叫者不是成員回 NotFound；
+    /// 群組容不下這批成員時回 <see cref="MemberCapacityRules"/> 的失敗結果；
     /// 顯示名稱未通過 <see cref="MemberDisplayNameRules"/> 的驗證時回它的失敗結果；
     /// 儲存失敗回 InternalServerError
     /// </returns>
@@ -82,6 +83,15 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
         }
 
         var activeNames = await dbContext.GroupMembers.Where(member => member.GroupId == groupId).Select(member => member.DisplayName).ToListAsync();
+        int usedSlotCount = await dbContext.GroupMembers.CountUsedSlotsAsync(groupId);
+
+        // Group容量優先於名稱：沒有位置時不先驗證名字
+        var capacity = MemberCapacityRules.Check(activeNames.Count, usedSlotCount, request.DisplayNames.Count);
+
+        if (!capacity.IsSuccess)
+        {
+            return Result<List<GroupMemberResponse>>.Failure(capacity);
+        }
 
         var validation = MemberDisplayNameRules.Validate(request.DisplayNames, activeNames);
 

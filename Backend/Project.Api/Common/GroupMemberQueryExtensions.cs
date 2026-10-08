@@ -19,4 +19,16 @@ public static class GroupMemberQueryExtensions
         => members.IgnoreQueryFilters()
                   .Where(member => member.GroupId == groupId && memberIds.Contains(member.Id))
                   .ToDictionaryAsync(member => member.Id, member => member.DisplayName);
+
+    /// <summary>
+    /// 算出群組已用掉的名額，即含已移除成員的成員數
+    /// </summary>
+    /// <remarks>
+    /// 為了計入已移除成員而略過所有 query filter，群組本身是否存在須另行確認。
+    /// </remarks>
+    /// <param name="members">要計數的成員</param>
+    /// <param name="groupId">成員所屬群組的 ID</param>
+    /// <returns>這個群組的成員數，現役成員與已移除成員都算</returns>
+    public static Task<int> CountUsedSlotsAsync(this IQueryable<GroupMember> members, int groupId)
+        => members.IgnoreQueryFilters().CountAsync(member => member.GroupId == groupId);
 }

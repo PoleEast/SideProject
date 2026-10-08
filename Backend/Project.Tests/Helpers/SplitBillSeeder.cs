@@ -120,6 +120,34 @@ public static class SplitBillSeeder
     }
 
     /// <summary>
+    /// 把種子群組補到指定的現役成員數與已移除成員數
+    /// </summary>
+    /// <remarks>
+    /// 補上的成員沒有任何帳，也未綁定 User。
+    /// </remarks>
+    /// <param name="context">已執行過 <see cref="SeedAsync"/> 的 DbContext</param>
+    /// <param name="activeCount">補完後的現役成員數，含種子原有的三位</param>
+    /// <param name="removedCount">補完後的已移除成員數</param>
+    public static async Task FillMembersAsync(ApplicationDbContext context, int activeCount, int removedCount = 0)
+    {
+        var activeMembers = Enumerable.Range(1, activeCount - MemberCount)
+            .Select(number => new GroupMember { GroupId = GroupId, DisplayName = $"現役{number}" })
+            .ToList();
+        var removedMembers = Enumerable.Range(1, removedCount)
+            .Select(number => new GroupMember { GroupId = GroupId, DisplayName = $"已移除{number}" })
+            .ToList();
+
+        context.GroupMembers.AddRange(activeMembers);
+        context.GroupMembers.AddRange(removedMembers);
+        await context.SaveChangesAsync();
+
+        context.GroupMembers.RemoveRange(removedMembers);
+        await context.SaveChangesAsync();
+
+        context.ChangeTracker.Clear();
+    }
+
+    /// <summary>
     /// 建立一個尚未加入任何群組的 User
     /// </summary>
     public static async Task AddUserAsync(ApplicationDbContext context, int userId, string name)

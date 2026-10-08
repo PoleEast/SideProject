@@ -32,6 +32,8 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
         }
 
         var members = await dbContext.GroupMembers.Where(member => member.GroupId == group.Id).OrderBy(member => member.Id).ToListAsync();
+        int usedSlotCount = await dbContext.GroupMembers.CountUsedSlotsAsync(group.Id);
+        bool canJoinAsNewMember = MemberCapacityRules.Check(members.Count, usedSlotCount, addingCount: 1).IsSuccess;
 
         var result = new InvitePreviewResponse
         {
@@ -39,6 +41,7 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
             GroupName = group.Name,
             IsMember = members.Any(member => member.UserId == userId),
             SuggestedDisplayName = userName,
+            CanJoinAsNewMember = canJoinAsNewMember,
             Members = members.Select(member => new InvitePreviewMemberResponse
             {
                 Id = member.Id,
@@ -119,6 +122,7 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
     /// <param name="request">新成員的顯示名稱</param>
     /// <returns>
     /// 成功時為加入的群組；邀請碼無效回 NotFound；呼叫者已是成員回 Conflict；
+    /// 群組容不下新成員時回 <see cref="MemberCapacityRules"/> 的失敗結果；
     /// 顯示名稱未通過 <see cref="MemberDisplayNameRules"/> 的驗證時回它的失敗結果；
     /// 儲存失敗回 InternalServerError
     /// </returns>
@@ -134,6 +138,15 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
         var group = joinableGroup.Value!;
 
         var activeNames = await dbContext.GroupMembers.Where(member => member.GroupId == group.Id).Select(member => member.DisplayName).ToListAsync();
+        int usedSlotCount = await dbContext.GroupMembers.CountUsedSlotsAsync(group.Id);
+
+        // Group容量優先於名稱：沒有位置時不先驗證名字
+        var capacity = MemberCapacityRules.Check(activeNames.Count, usedSlotCount, addingCount: 1);
+
+        if (!capacity.IsSuccess)
+        {
+            return Result<GroupResponse>.Failure(capacity);
+        }
 
         var validation = MemberDisplayNameRules.Validate(request.DisplayName, activeNames);
 

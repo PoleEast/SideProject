@@ -16,7 +16,10 @@ public class InvitePreviewResponse
     [Description("以新成員加入時預填的顯示名稱")]
     public string SuggestedDisplayName { get; set; } = string.Empty;
 
-    [Description("未移除的成員，依ID排序")]
+    [Description("能否以新成員加入")]
+    public bool CanJoinAsNewMember { get; set; }
+
+    [Description("現役成員，依ID排序")]
     public List<InvitePreviewMemberResponse> Members { get; set; } = [];
 }
 

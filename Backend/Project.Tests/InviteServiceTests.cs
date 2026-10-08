@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Project.Api.Helpers;
 using Project.Api.Services;
 using Project.Data;
 using Project.Data.Model;
@@ -45,7 +46,7 @@ public class InviteServiceTests
 
     #region 預覽
 
-    [Fact(DisplayName = "預覽：非成員看到群組名稱、未移除的成員與綁定狀態，預填名稱為 User.Name")]
+    [Fact(DisplayName = "預覽：非成員看到群組名稱、現役成員與綁定狀態，預填名稱為 User.Name")]
     public async Task Preview_NotAMember_ReturnsGroupAndActiveMembers()
     {
         // Arrange - 阿華已被移除
@@ -393,6 +394,131 @@ public class InviteServiceTests
         // Assert
         Assert.Equal(ResultCode.ValidationError, result.Code);
         Assert.Equal(SplitBillSeeder.MemberCount, await context.GroupMembers.CountAsync(Ct));
+    }
+
+    #endregion
+
+    #region 成員容量
+
+    private const int MaxActiveMembers = MemberCapacityRules.MaxActiveMembers;
+    private const int MaxMemberSlots = MemberCapacityRules.MaxMemberSlots;
+
+    /// <summary>現役成員未滿的人數，用來讓名額單獨用盡</summary>
+    private const int PartiallyFilledCount = 10;
+
+    [Fact(DisplayName = "成員容量：以新成員加入補上最後一個位置，成功")]
+    public async Task JoinAsNewMember_TakesLastActiveSeat_Succeeds()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.AddUserAsync(context, AmyUserId, "陳怡安");
+        await SplitBillSeeder.FillMembersAsync(context, activeCount: MaxActiveMembers - 1);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.JoinAsNewMemberAsync(InviteCode, AmyUserId, JoinRequest("Amy Chen"));
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(MaxActiveMembers, await context.GroupMembers.CountAsync(Ct));
+    }
+
+    [Fact(DisplayName = "成員容量：人員已滿時以新成員加入回 BusinessRuleViolation，不建立成員、不寫動態")]
+    public async Task JoinAsNewMember_GroupFull_ReturnsBusinessRuleViolationAndAddsNothing()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.AddUserAsync(context, AmyUserId, "陳怡安");
+        await SplitBillSeeder.FillMembersAsync(context, activeCount: MaxActiveMembers);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.JoinAsNewMemberAsync(InviteCode, AmyUserId, JoinRequest("Amy Chen"));
+
+        // Assert
+        Assert.Equal(ResultCode.BusinessRuleViolation, result.Code);
+        Assert.Contains("人員已滿", result.Message);
+        Assert.Equal(MaxActiveMembers, await context.GroupMembers.CountAsync(Ct));
+        Assert.False(await context.ActivityLogs.AnyAsync(log => log.ActionType == ActivityActionType.MemberJoined, Ct));
+    }
+
+    [Fact(DisplayName = "成員容量：名額用盡時以新成員加入回 BusinessRuleViolation，訊息指出名額用盡")]
+    public async Task JoinAsNewMember_SlotsExhausted_ReturnsBusinessRuleViolation()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.AddUserAsync(context, AmyUserId, "陳怡安");
+        await SplitBillSeeder.FillMembersAsync(
+            context, activeCount: PartiallyFilledCount, removedCount: MaxMemberSlots - PartiallyFilledCount);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.JoinAsNewMemberAsync(InviteCode, AmyUserId, JoinRequest("Amy Chen"));
+
+        // Assert
+        Assert.Equal(ResultCode.BusinessRuleViolation, result.Code);
+        Assert.Contains("名額已用盡", result.Message);
+        Assert.Equal(PartiallyFilledCount, await context.GroupMembers.CountAsync(Ct));
+    }
+
+    [Fact(DisplayName = "成員容量：已是成員的人在人員已滿的群組再加入，仍回 Conflict")]
+    public async Task JoinAsNewMember_CallerAlreadyMemberOfFullGroup_ReturnsConflict()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(context, activeCount: MaxActiveMembers);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.JoinAsNewMemberAsync(InviteCode, SplitBillSeeder.OwnerUserId, JoinRequest("明哥"));
+
+        // Assert - 他需要知道的是自己已經在群組裡
+        Assert.Equal(ResultCode.Conflict, result.Code);
+    }
+
+    [Theory(DisplayName = "成員容量：人員已滿或名額用盡時照常可以認領")]
+    [InlineData(MaxActiveMembers, 0)]
+    [InlineData(PartiallyFilledCount, MaxMemberSlots - PartiallyFilledCount)]
+    public async Task ClaimMember_GroupFullOrSlotsExhausted_Succeeds(int activeCount, int removedCount)
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.AddUserAsync(context, AmyUserId, "陳怡安");
+        await SplitBillSeeder.FillMembersAsync(context, activeCount, removedCount);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.ClaimMemberAsync(InviteCode, AmyMemberId, AmyUserId);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(ResultCode.Success, await SplitBillAccess.ReadSeededGroupAsync(context, AmyUserId));
+    }
+
+    [Theory(DisplayName = "成員容量：預覽標示能否以新成員加入，人員已滿或名額用盡時為否")]
+    [InlineData(SplitBillSeeder.MemberCount, 0, true)]
+    [InlineData(MaxActiveMembers, 0, false)]
+    [InlineData(PartiallyFilledCount, MaxMemberSlots - PartiallyFilledCount, false)]
+    public async Task Preview_ReportsCanJoinAsNewMember(int activeCount, int removedCount, bool expected)
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.AddUserAsync(context, AmyUserId, "陳怡安");
+        await SplitBillSeeder.FillMembersAsync(context, activeCount, removedCount);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.PreviewAsync(InviteCode, AmyUserId);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(expected, result.Value!.CanJoinAsNewMember);
     }
 
     #endregion

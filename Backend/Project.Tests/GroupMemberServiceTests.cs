@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Project.Api.Helpers;
 using Project.Api.Services;
 using Project.Data;
 using Project.Data.Model;
@@ -257,6 +258,187 @@ public class GroupMemberServiceTests
         // Assert
         Assert.Equal(ResultCode.ValidationError, result.Code);
         Assert.Equal(SplitBillSeeder.MemberCount, await context.GroupMembers.CountAsync(Ct));
+    }
+
+    #endregion
+
+    #region 成員容量
+
+    private const int MaxActiveMembers = MemberCapacityRules.MaxActiveMembers;
+    private const int MaxMemberSlots = MemberCapacityRules.MaxMemberSlots;
+
+    /// <summary>現役成員未滿的人數，用來讓名額單獨不足</summary>
+    private const int PartiallyFilledCount = 10;
+
+    private const string GroupFullHint = "人員已滿";
+    private const string SlotsExhaustedHint = "名額已用盡";
+
+    private static string[] FriendNames(int count)
+        => Enumerable.Range(1, count).Select(number => $"朋友{number}").ToArray();
+
+    [Fact(DisplayName = "成員容量：一批剛好補滿現役成員上限，成功")]
+    public async Task AddMembers_FillsUpToActiveLimit_Succeeds()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(context, activeCount: MaxActiveMembers - GroupMemberService.MaxMembersPerBatch);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.AddMembersAsync(
+            GroupId, OwnerUserId, AddRequest(FriendNames(GroupMemberService.MaxMembersPerBatch)));
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(MaxActiveMembers, await context.GroupMembers.CountAsync(Ct));
+    }
+
+    [Fact(DisplayName = "成員容量：批次超出可新增的數量時整批不寫入，訊息列出還能新增幾位")]
+    public async Task AddMembers_BatchExceedsRemainingCapacity_ReturnsBusinessRuleViolationAndAddsNothing()
+    {
+        // Arrange - 現役成員離上限還差 2 位
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(context, activeCount: MaxActiveMembers - 2);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.AddMembersAsync(GroupId, OwnerUserId, AddRequest(FriendNames(3)));
+
+        // Assert
+        Assert.Equal(ResultCode.BusinessRuleViolation, result.Code);
+        Assert.Contains("再新增 2 位", result.Message);
+        Assert.Equal(MaxActiveMembers - 2, await context.GroupMembers.CountAsync(Ct));
+        Assert.False(await context.ActivityLogs.AnyAsync(log => log.ActionType == ActivityActionType.MemberAdded, Ct));
+    }
+
+    [Fact(DisplayName = "成員容量：人員已滿時新增回 BusinessRuleViolation，訊息指出人員已滿")]
+    public async Task AddMembers_GroupFull_ReturnsBusinessRuleViolation()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(context, activeCount: MaxActiveMembers);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.AddMembersAsync(GroupId, OwnerUserId, AddRequest("小美"));
+
+        // Assert
+        Assert.Equal(ResultCode.BusinessRuleViolation, result.Code);
+        Assert.Contains(GroupFullHint, result.Message);
+        Assert.Equal(MaxActiveMembers, await context.GroupMembers.CountAsync(Ct));
+    }
+
+    [Fact(DisplayName = "成員容量：人員已滿時移除一位現役成員，之後可再新增一位")]
+    public async Task AddMembers_AfterRemovingMemberFromFullGroup_Succeeds()
+    {
+        // Arrange - Id 最大的現役成員是補上的，沒有任何帳
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(context, activeCount: MaxActiveMembers);
+        int removableMemberId = await context.GroupMembers.MaxAsync(member => member.Id, Ct);
+        var service = CreateService(context);
+
+        // Act
+        var remove = await service.RemoveMemberAsync(GroupId, removableMemberId, OwnerUserId);
+        var add = await service.AddMembersAsync(GroupId, OwnerUserId, AddRequest("小美"));
+
+        // Assert
+        Assert.True(remove.IsSuccess);
+        Assert.True(add.IsSuccess);
+        Assert.Equal(MaxActiveMembers, await context.GroupMembers.CountAsync(Ct));
+    }
+
+    [Fact(DisplayName = "成員容量：現役成員還有位置但剩餘名額不夠時，訊息列出還能新增幾位")]
+    public async Task AddMembers_BatchExceedsRemainingSlots_ReturnsBusinessRuleViolation()
+    {
+        // Arrange - 名額只剩 2 個
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(
+            context, activeCount: PartiallyFilledCount, removedCount: MaxMemberSlots - PartiallyFilledCount - 2);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.AddMembersAsync(GroupId, OwnerUserId, AddRequest(FriendNames(3)));
+
+        // Assert
+        Assert.Equal(ResultCode.BusinessRuleViolation, result.Code);
+        Assert.Contains("再新增 2 位", result.Message);
+        Assert.Equal(PartiallyFilledCount, await context.GroupMembers.CountAsync(Ct));
+    }
+
+    [Fact(DisplayName = "成員容量：名額用盡時新增回 BusinessRuleViolation，訊息指出名額用盡")]
+    public async Task AddMembers_SlotsExhausted_ReturnsBusinessRuleViolation()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(
+            context, activeCount: PartiallyFilledCount, removedCount: MaxMemberSlots - PartiallyFilledCount);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.AddMembersAsync(GroupId, OwnerUserId, AddRequest("小美"));
+
+        // Assert
+        Assert.Equal(ResultCode.BusinessRuleViolation, result.Code);
+        Assert.Contains(SlotsExhaustedHint, result.Message);
+        Assert.Equal(PartiallyFilledCount, await context.GroupMembers.CountAsync(Ct));
+    }
+
+    [Fact(DisplayName = "成員容量：人員已滿且名額用盡時，訊息為名額用盡而非人員已滿")]
+    public async Task AddMembers_GroupFullAndSlotsExhausted_ReportsSlotsExhausted()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(
+            context, activeCount: MaxActiveMembers, removedCount: MaxMemberSlots - MaxActiveMembers);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.AddMembersAsync(GroupId, OwnerUserId, AddRequest("小美"));
+
+        // Assert - 移除成員也救不了，訊息不該引導去移除
+        Assert.Equal(ResultCode.BusinessRuleViolation, result.Code);
+        Assert.Contains(SlotsExhaustedHint, result.Message);
+        Assert.DoesNotContain(GroupFullHint, result.Message);
+    }
+
+    [Fact(DisplayName = "成員容量：人員已滿時送出撞名的名字，回 BusinessRuleViolation 而非 Conflict")]
+    public async Task AddMembers_GroupFullWithTakenName_ReturnsBusinessRuleViolation()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(context, activeCount: MaxActiveMembers);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.AddMembersAsync(GroupId, OwnerUserId, AddRequest("Amy"));
+
+        // Assert - 沒有位置時不先要求修正名字
+        Assert.Equal(ResultCode.BusinessRuleViolation, result.Code);
+    }
+
+    [Fact(DisplayName = "成員容量：非成員對人員已滿的群組新增成員，回 NotFound")]
+    public async Task AddMembers_NotAMemberOfFullGroup_ReturnsNotFound()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(context, activeCount: MaxActiveMembers);
+        const int strangerUserId = 99;
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.AddMembersAsync(GroupId, strangerUserId, AddRequest("陌生人"));
+
+        // Assert - 上限的錯誤會洩漏別人的群組有多少人
+        Assert.Equal(ResultCode.NotFound, result.Code);
     }
 
     #endregion

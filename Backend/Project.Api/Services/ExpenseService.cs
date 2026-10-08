@@ -44,7 +44,9 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
 
     public async Task<Result<ExpenseResponse>> CreateExpenseAsync(int groupId, int userId, ExpenseRequest request)
     {
-        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
+        var group = await dbContext.Groups.AsNoTracking()
+                                          .AccessibleBy(userId)
+                                          .FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
 
         if (group == null)
         {
@@ -121,7 +123,9 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
     /// </returns>
     public async Task<Result<ExpenseResponse>> UpdateExpenseAsync(int groupId, int expenseId, int userId, ExpenseRequest request)
     {
-        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
+        var group = await dbContext.Groups.AsNoTracking()
+                                          .AccessibleBy(userId)
+                                          .FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
 
         if (group == null)
         {

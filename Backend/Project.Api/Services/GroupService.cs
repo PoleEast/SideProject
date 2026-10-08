@@ -69,14 +69,18 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
 
     public async Task<Result<List<GroupResponse>>> GetMyGroupsAsync(int userId)
     {
-        var groups = await dbContext.Groups.AccessibleBy(userId).ToListAsync();
+        var groups = await dbContext.Groups.AsNoTracking()
+                                           .AccessibleBy(userId)
+                                           .ToListAsync();
 
         return Result<List<GroupResponse>>.Success(groups.Adapt<List<GroupResponse>>());
     }
 
     public async Task<Result<GroupResponse>> GetGroupByIdAsync(int groupId, int userId)
     {
-        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
+        var group = await dbContext.Groups.AsNoTracking()
+                                          .AccessibleBy(userId)
+                                          .FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
 
         if (group == null)
         {

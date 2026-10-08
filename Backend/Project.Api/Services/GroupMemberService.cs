@@ -29,7 +29,9 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
     /// <returns>成功時為依 ID 排序的成員；群組不存在或呼叫者不是成員回 NotFound</returns>
     public async Task<Result<List<GroupMemberResponse>>> GetMembersAsync(int groupId, int userId)
     {
-        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
+        var group = await dbContext.Groups.AsNoTracking()
+                                          .AccessibleBy(userId)
+                                          .FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
 
         if (group == null)
         {
@@ -70,7 +72,9 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
             return Result<List<GroupMemberResponse>>.Failure(ResultCode.ValidationError, $"一次請新增 1~{MaxMembersPerBatch} 位成員");
         }
 
-        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
+        var group = await dbContext.Groups.AsNoTracking()
+                                          .AccessibleBy(userId)
+                                          .FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
 
         if (group == null)
         {
@@ -120,7 +124,9 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
     public async Task<Result<GroupMemberResponse>> RenameMemberAsync(
         int groupId, int memberId, int userId, RenameGroupMemberRequest request)
     {
-        var group = await dbContext.Groups.AccessibleBy(userId).FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
+        var group = await dbContext.Groups.AsNoTracking()
+                                          .AccessibleBy(userId)
+                                          .FirstOrDefaultAsync(storedGroup => storedGroup.Id == groupId);
 
         if (group == null)
         {

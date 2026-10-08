@@ -209,6 +209,6 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
     {
         string normalizedCode = InviteCodeGenerator.Normalize(inviteCode);
 
-        return dbContext.Groups.FirstOrDefaultAsync(storedGroup => storedGroup.InviteCode == normalizedCode);
+        return dbContext.Groups.AsNoTracking().FirstOrDefaultAsync(storedGroup => storedGroup.InviteCode == normalizedCode);
     }
 }

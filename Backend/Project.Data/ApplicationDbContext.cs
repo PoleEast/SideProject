@@ -153,7 +153,7 @@ namespace Project.Data
 
                 entity.HasIndex(e => e.ExpenseId);
 
-                // 刻意不串 GroupMember：成員移除後歷史明細必須保留
+                // 刻意不串 GroupMember：成員移除後歷史分攤必須保留
                 entity.HasQueryFilter(e => e.DeletedAt == null && e.Expense.DeletedAt == null);
             });
 

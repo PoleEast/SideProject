@@ -46,7 +46,7 @@ public class SplitBillDataLayerTests
         Assert.Empty(await context.ActivityLogs.ToListAsync(Ct));
     }
 
-    [Fact(DisplayName = "軟刪花費：其分攤明細一併查不到")]
+    [Fact(DisplayName = "軟刪花費：其分攤一併查不到")]
     public async Task SoftDeleteExpense_ItsSharesFilteredOut()
     {
         // Arrange
@@ -86,7 +86,7 @@ public class SplitBillDataLayerTests
 
     #region 成員移除不影響歷史帳目
 
-    [Fact(DisplayName = "移除成員：他的歷史分攤明細仍然保留，花費加總不變")]
+    [Fact(DisplayName = "移除成員：他的歷史分攤仍然保留，花費加總不變")]
     public async Task SoftDeleteGroupMember_HistoricalSharesSurvive()
     {
         // Arrange
@@ -98,13 +98,13 @@ public class SplitBillDataLayerTests
         context.GroupMembers.Remove(amy);
         await context.SaveChangesAsync(Ct);
 
-        // Assert - 成員清單少一人，但分攤明細一筆都不能少
+        // Assert - 成員清單少一人，但分攤一筆都不能少
         Assert.Equal(2, await context.GroupMembers.CountAsync(Ct));
 
         var shares = await context.ExpenseShares.ToListAsync(Ct);
         Assert.Equal(3, shares.Count);
 
-        // 這是 Split Bill 的核心不變量：明細加總 == 花費原幣總額
+        // 這是 Split Bill 的核心不變量：分攤加總 == 花費原幣總額
         Assert.Equal(SplitBillSeeder.ExpenseAmount, shares.Sum(share => share.Amount));
     }
 

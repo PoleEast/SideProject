@@ -106,15 +106,15 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
             .Select(displayName => new GroupMember { GroupId = groupId, DisplayName = displayName })
             .ToList();
 
-        dbContext.AddRange(members);
+        var recorded = await dbContext.RecordActivityAsync(
+            groupId, userId, ActivityActionType.MemberAdded, $"新增了成員{StringFormatter.FormatNameList(displayNames)}");
 
-        dbContext.Add(new ActivityLog
+        if (!recorded.IsSuccess)
         {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.MemberAdded,
-            Summary = $"新增了成員{StringFormatter.FormatNameList(displayNames)}"
-        });
+            return Result<List<GroupMemberResponse>>.Failure(recorded);
+        }
+
+        dbContext.AddRange(members);
 
         try
         {
@@ -170,13 +170,13 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
             return Result<GroupMemberResponse>.Success(ToResponse(member, userId, group.OwnerUserId));
         }
 
-        dbContext.Add(new ActivityLog
+        var recorded = await dbContext.RecordActivityAsync(
+            groupId, userId, ActivityActionType.MemberRenamed, $"將成員「{member.DisplayName}」改名為「{displayName}」");
+
+        if (!recorded.IsSuccess)
         {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.MemberRenamed,
-            Summary = $"將成員「{member.DisplayName}」改名為「{displayName}」"
-        });
+            return Result<GroupMemberResponse>.Failure(recorded);
+        }
 
         member.DisplayName = displayName;
 
@@ -250,13 +250,12 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
             summary += "，並重置了邀請碼";
         }
 
-        dbContext.Add(new ActivityLog
+        var recorded = await dbContext.RecordActivityAsync(groupId, userId, ActivityActionType.MemberRemoved, summary);
+
+        if (!recorded.IsSuccess)
         {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.MemberRemoved,
-            Summary = summary
-        });
+            return recorded;
+        }
 
         dbContext.Remove(member);
 
@@ -314,17 +313,17 @@ public class GroupMemberService(ApplicationDbContext dbContext, SettlementServic
             return Result.Success();
         }
 
-        dbContext.Add(new ActivityLog
-        {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.MemberUnbound,
+        // 解除自己要寫出位置名稱：位置與帳目還在，其他人需要知道它現在是空位
+        string summary = member.UserId == userId
+            ? $"解除了與「{member.DisplayName}」的綁定並退出群組，並重置了邀請碼"
+            : $"解除了「{member.DisplayName}」的帳號綁定，並重置了邀請碼";
 
-            // 解除自己要寫出位置名稱：位置與帳目還在，其他人需要知道它現在是空位
-            Summary = member.UserId == userId
-                ? $"解除了與「{member.DisplayName}」的綁定並退出群組，並重置了邀請碼"
-                : $"解除了「{member.DisplayName}」的帳號綁定，並重置了邀請碼"
-        });
+        var recorded = await dbContext.RecordActivityAsync(groupId, userId, ActivityActionType.MemberUnbound, summary);
+
+        if (!recorded.IsSuccess)
+        {
+            return recorded;
+        }
 
         member.UserId = null;
         group.InviteCode = InviteCodeGenerator.Generate();

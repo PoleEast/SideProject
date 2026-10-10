@@ -61,7 +61,7 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
     /// <param name="userId">呼叫者的使用者 ID</param>
     /// <returns>
     /// 成功時為加入的群組；邀請碼無效或找不到成員回 NotFound；
-    /// 呼叫者已是成員、或該成員已被認領回 Conflict；儲存失敗回 InternalServerError
+    /// 呼叫者已是成員、或該成員已被認領回 Conflict；使用者不存在回 Unauthorized；儲存失敗回 InternalServerError
     /// </returns>
     public async Task<Result<GroupResponse>> ClaimMemberAsync(string inviteCode, int memberId, int userId)
     {
@@ -86,13 +86,13 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
             return Result<GroupResponse>.Failure(ResultCode.Conflict, "這個位置已被認領");
         }
 
-        dbContext.Add(new ActivityLog
+        var recorded = await dbContext.RecordJoiningActivityAsync(
+            member, userId, ActivityActionType.MemberClaimed, $"認領了成員「{member.DisplayName}」");
+
+        if (!recorded.IsSuccess)
         {
-            GroupId = group.Id,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.MemberClaimed,
-            Summary = $"認領了成員「{member.DisplayName}」"
-        });
+            return Result<GroupResponse>.Failure(recorded);
+        }
 
         member.UserId = userId;
 
@@ -124,7 +124,7 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
     /// 成功時為加入的群組；邀請碼無效回 NotFound；呼叫者已是成員回 Conflict；
     /// 群組容不下新成員時回 <see cref="MemberCapacityRules"/> 的失敗結果；
     /// 顯示名稱未通過 <see cref="MemberDisplayNameRules"/> 的驗證時回它的失敗結果；
-    /// 儲存失敗回 InternalServerError
+    /// 使用者不存在回 Unauthorized；儲存失敗回 InternalServerError
     /// </returns>
     public async Task<Result<GroupResponse>> JoinAsNewMemberAsync(string inviteCode, int userId, JoinAsNewMemberRequest request)
     {
@@ -157,19 +157,22 @@ public class InviteService(ApplicationDbContext dbContext, ILogger<InviteService
 
         string displayName = validation.Value!;
 
-        dbContext.Add(new GroupMember { 
-            GroupId = group.Id, 
-            DisplayName = displayName, 
-            UserId = userId
-        });
-
-        dbContext.Add(new ActivityLog
+        var joinedMember = new GroupMember
         {
             GroupId = group.Id,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.MemberJoined,
-            Summary = $"以「{displayName}」加入了群組"
-        });
+            DisplayName = displayName,
+            UserId = userId
+        };
+
+        var recorded = await dbContext.RecordJoiningActivityAsync(
+            joinedMember, userId, ActivityActionType.MemberJoined, $"以「{displayName}」加入了群組");
+
+        if (!recorded.IsSuccess)
+        {
+            return Result<GroupResponse>.Failure(recorded);
+        }
+
+        dbContext.Add(joinedMember);
 
         try
         {

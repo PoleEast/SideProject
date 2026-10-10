@@ -31,6 +31,9 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
             return Result<GroupResponse>.Failure(ResultCode.Unauthorized, "使用者不存在");
         }
 
+        // 擁有者自動成為成員，顯示名稱取 User.Name。
+        var owner = new GroupMember { UserId = userId, DisplayName = userName };
+
         var group = new Group
         {
             OwnerUserId = userId,
@@ -38,21 +41,21 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
             Description = request.Description,
             BaseCurrency = request.BaseCurrency!.Value,
             InviteCode = InviteCodeGenerator.Generate(),
-
-            // 擁有者自動成為成員，顯示名稱取 User.Name。
-            // 之後 User 改名不同步。
-            GroupMembers = [new GroupMember { UserId = userId, DisplayName = userName }]
+            GroupMembers = [owner]
         };
+
+        // 群組尚未存檔、沒有 Id，動態要經由成員的導覽屬性才連得到它
+        owner.Group = group;
 
         dbContext.Add(group);
 
-        dbContext.Add(new ActivityLog
+        var recorded = await dbContext.RecordJoiningActivityAsync(
+            owner, userId, ActivityActionType.GroupCreated, $"建立了群組「{request.Name}」，基準幣為 {request.BaseCurrency}");
+
+        if (!recorded.IsSuccess)
         {
-            Group = group,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.GroupCreated,
-            Summary = $"建立了群組「{request.Name}」，基準幣為 {request.BaseCurrency}"
-        });
+            return Result<GroupResponse>.Failure(recorded);
+        }
 
         try
         {
@@ -148,6 +151,14 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
             return Result<GroupResponse>.Success(group.Adapt<GroupResponse>());
         }
 
+        var recorded = await dbContext.RecordActivityAsync(
+            groupId, userId, ActivityActionType.GroupUpdated, $"修改了群組{string.Join("、", changes)}");
+
+        if (!recorded.IsSuccess)
+        {
+            return Result<GroupResponse>.Failure(recorded);
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Name))
         {
             group.Name = request.Name;
@@ -162,14 +173,6 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
         {
             group.BaseCurrency = request.BaseCurrency.Value;
         }
-
-        dbContext.Add(new ActivityLog
-        {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.GroupUpdated,
-            Summary = $"修改了群組{string.Join("、", changes)}"
-        });
 
         try
         {
@@ -211,16 +214,15 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
             return Result.Failure(ResultCode.Forbidden, "只有群組擁有者可以刪除群組");
         }
 
-        dbContext.Groups.Remove(group);
+        var recorded = await dbContext.RecordActivityAsync(
+            groupId, userId, ActivityActionType.GroupDeleted, $"刪除了群組「{group.Name}」");
 
-        // 動態會隨群組一起被 query filter 濾掉，但資料留在 DB，事後仍查得到是誰刪的
-        dbContext.Add(new ActivityLog
+        if (!recorded.IsSuccess)
         {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.GroupDeleted,
-            Summary = $"刪除了群組「{group.Name}」"
-        });
+            return recorded;
+        }
+
+        dbContext.Groups.Remove(group);
 
         try
         {
@@ -266,17 +268,18 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
             return Result<GroupResponse>.Success(group.Adapt<GroupResponse>());
         }
 
-        group.ClosedAt = shouldBeClosed ? DateTimeOffset.UtcNow : null;
+        var recorded = await dbContext.RecordActivityAsync(
+            groupId,
+            userId,
+            shouldBeClosed ? ActivityActionType.GroupClosed : ActivityActionType.GroupReopened,
+            shouldBeClosed ? $"將群組「{group.Name}」標記為已結束" : $"將群組「{group.Name}」改回進行中");
 
-        dbContext.Add(new ActivityLog
+        if (!recorded.IsSuccess)
         {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = shouldBeClosed ? ActivityActionType.GroupClosed : ActivityActionType.GroupReopened,
-            Summary = shouldBeClosed
-                ? $"將群組「{group.Name}」標記為已結束"
-                : $"將群組「{group.Name}」改回進行中"
-        });
+            return Result<GroupResponse>.Failure(recorded);
+        }
+
+        group.ClosedAt = shouldBeClosed ? DateTimeOffset.UtcNow : null;
 
         try
         {
@@ -313,15 +316,15 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
             return Result<GroupResponse>.Failure(ResultCode.NotFound, "找不到此群組");
         }
 
-        group.InviteCode = InviteCodeGenerator.Generate();
+        var recorded = await dbContext.RecordActivityAsync(
+            groupId, userId, ActivityActionType.InviteCodeReset, $"重置了群組「{group.Name}」的邀請碼");
 
-        dbContext.Add(new ActivityLog
+        if (!recorded.IsSuccess)
         {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.InviteCodeReset,
-            Summary = $"重置了群組「{group.Name}」的邀請碼"
-        });
+            return Result<GroupResponse>.Failure(recorded);
+        }
+
+        group.InviteCode = InviteCodeGenerator.Generate();
 
         try
         {

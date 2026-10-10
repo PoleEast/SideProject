@@ -107,15 +107,15 @@ public class SettlementService(ApplicationDbContext dbContext, ILogger<Settlemen
             CreatedByUserId = userId
         };
 
-        dbContext.Add(settlement);
+        var recorded = await dbContext.RecordActivityAsync(
+            groupId, userId, ActivityActionType.SettlementRecorded, $"記錄了還款：{Describe(settlement, memberNames, group.BaseCurrency)}");
 
-        dbContext.Add(new ActivityLog
+        if (!recorded.IsSuccess)
         {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.SettlementRecorded,
-            Summary = $"記錄了還款：{Describe(settlement, memberNames, group.BaseCurrency)}"
-        });
+            return Result<SettlementResponse>.Failure(recorded);
+        }
+
+        dbContext.Add(settlement);
 
         try
         {
@@ -163,13 +163,13 @@ public class SettlementService(ApplicationDbContext dbContext, ILogger<Settlemen
 
         var memberNames = await dbContext.GroupMembers.FindDisplayNamesAsync(groupId, [settlement.FromMemberId, settlement.ToMemberId]);
 
-        dbContext.Add(new ActivityLog
+        var recorded = await dbContext.RecordActivityAsync(
+            groupId, userId, ActivityActionType.SettlementDeleted, $"刪除了還款：{Describe(settlement, memberNames, group.BaseCurrency)}");
+
+        if (!recorded.IsSuccess)
         {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.SettlementDeleted,
-            Summary = $"刪除了還款：{Describe(settlement, memberNames, group.BaseCurrency)}"
-        });
+            return recorded;
+        }
 
         dbContext.Remove(settlement);
 

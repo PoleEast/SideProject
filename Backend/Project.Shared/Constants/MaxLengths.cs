@@ -23,4 +23,7 @@ public static class MaxLengths
     public const int ExpenseDescription = 200;
 
     public const int ActivityLogSummary = 500;
+    public const int ActivityLogActorName = 32;
+
+    public const int ActivityLogDetailText = 100;
 }

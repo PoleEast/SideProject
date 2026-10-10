@@ -84,17 +84,19 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
 
         var memberNames = await dbContext.GroupMembers.FindDisplayNamesAsync(groupId, [expense.PayerId]);
 
-        dbContext.Add(expense);
+        string summary = $"新增了花費「{expense.Name}」{StringFormatter.FormatMoney(expense.Currency, expense.Amount)}，"
+            + $"由「{memberNames[expense.PayerId]}」付款，{expense.ExpenseShares.Count} 人分攤";
 
-        dbContext.Add(new ActivityLog
+        var details = await BuildShareDetailsAsync(groupId, before: null, after: ShareSnapshot.Of(expense));
+
+        var recorded = await dbContext.RecordActivityAsync(groupId, userId, ActivityActionType.ExpenseCreated, summary, expense, details);
+
+        if (!recorded.IsSuccess)
         {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.ExpenseCreated,
-            TargetExpense = expense,
-            Summary = $"新增了花費「{expense.Name}」{StringFormatter.FormatMoney(expense.Currency, expense.Amount)}，"
-                + $"由「{memberNames[expense.PayerId]}」付款，{expense.ExpenseShares.Count} 人分攤"
-        });
+            return Result<ExpenseResponse>.Failure(recorded);
+        }
+
+        dbContext.Add(expense);
 
         try
         {
@@ -170,14 +172,18 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
             rate = resolvedRate.Value;
         }
 
-        dbContext.Add(new ActivityLog
+        // 動態明細比的是改動之前的分攤，須在下面覆蓋花費之前組好
+        var details = await BuildShareDetailsAsync(
+            groupId,
+            before: ShareSnapshot.Of(expense),
+            after: new ShareSnapshot(currency, request.Shares.ToDictionary(share => share.MemberId, share => share.Amount)));
+
+        var recorded = await dbContext.RecordActivityAsync(groupId, userId, ActivityActionType.ExpenseUpdated, summary, expense, details);
+
+        if (!recorded.IsSuccess)
         {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.ExpenseUpdated,
-            TargetExpenseId = expense.Id,
-            Summary = summary
-        });
+            return Result<ExpenseResponse>.Failure(recorded);
+        }
 
         expense.Name = request.Name.Trim();
         expense.Description = request.Description;
@@ -241,21 +247,27 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
             return Result.Failure(ResultCode.NotFound, "找不到此群組");
         }
 
-        var expense = await dbContext.Expenses.FirstOrDefaultAsync(storedExpense => storedExpense.Id == expenseId && storedExpense.GroupId == groupId);
+        var expense = await dbContext.Expenses.Include(storedExpense => storedExpense.ExpenseShares).FirstOrDefaultAsync(storedExpense => storedExpense.Id == expenseId && storedExpense.GroupId == groupId);
 
         if (expense == null)
         {
             return Result.Failure(ResultCode.NotFound, "找不到此花費");
         }
 
-        dbContext.Add(new ActivityLog
+        var details = await BuildShareDetailsAsync(groupId, before: ShareSnapshot.Of(expense), after: null);
+
+        var recorded = await dbContext.RecordActivityAsync(
+            groupId,
+            userId,
+            ActivityActionType.ExpenseDeleted,
+            $"刪除了花費「{expense.Name}」{StringFormatter.FormatMoney(expense.Currency, expense.Amount)}",
+            expense,
+            details);
+
+        if (!recorded.IsSuccess)
         {
-            GroupId = groupId,
-            ActorUserId = userId,
-            ActionType = ActivityActionType.ExpenseDeleted,
-            TargetExpenseId = expense.Id,
-            Summary = $"刪除了花費「{expense.Name}」{StringFormatter.FormatMoney(expense.Currency, expense.Amount)}"
-        });
+            return recorded;
+        }
 
         // 軟刪不會推進 UpdatedAt；不手動推進的話，同時進行的編輯拿著舊值仍能通過 concurrency token 的檢查
         expense.UpdatedAt = DateTimeOffset.UtcNow;
@@ -485,6 +497,85 @@ public class ExpenseService(ApplicationDbContext dbContext, ExchangeRateService 
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// 比較變動前後的分攤，逐位成員組出動態明細
+    /// </summary>
+    /// <param name="groupId">花費所屬群組的 ID</param>
+    /// <param name="before">變動前的分攤；花費是這次才建立時為 null</param>
+    /// <param name="after">變動後的分攤；花費在這次被刪除時為 null</param>
+    /// <returns>依成員 ID 排序的動態明細，分攤沒有改變的成員不在其中；沒有任何人改變時為空</returns>
+    private async Task<List<ActivityLogDetail>> BuildShareDetailsAsync(int groupId, ShareSnapshot? before, ShareSnapshot? after)
+    {
+        var memberIds = (before?.AmountsByMemberId.Keys ?? []).Union(after?.AmountsByMemberId.Keys ?? []);
+
+        var changes = memberIds.Select(memberId => (MemberId: memberId, Description: DescribeMemberShareChange(memberId, before, after)))
+                               .Where(change => change.Description != null)
+                               .OrderBy(change => change.MemberId)
+                               .ToList();
+
+        if (changes.Count == 0)
+        {
+            return [];
+        }
+
+        // 參與者可能已被移除，名稱要連已移除成員一起查
+        var memberNames = await dbContext.GroupMembers.FindDisplayNamesAsync(groupId, changes.Select(change => change.MemberId));
+
+        return changes.Select(change => new ActivityLogDetail
+        {
+            GroupMemberId = change.MemberId,
+            Text = $"「{memberNames[change.MemberId]}」{change.Description}"
+        }).ToList();
+    }
+
+    /// <summary>
+    /// 描述一位成員的分攤在這次變動中出現、改變或消失
+    /// </summary>
+    /// <param name="memberId">成員 ID</param>
+    /// <param name="before">變動前的分攤；花費是這次才建立時為 null</param>
+    /// <param name="after">變動後的分攤；花費在這次被刪除時為 null</param>
+    /// <returns>接在成員名稱之後的敘述；他的分攤沒有改變時為 null</returns>
+    private static string? DescribeMemberShareChange(int memberId, ShareSnapshot? before, ShareSnapshot? after)
+    {
+        // 原幣與金額合成一個值比較。分攤不帶小於最小單位的零頭，格式化不會把不同的金額寫成同一個字串
+        string? shareBefore = before?.FormatShareOf(memberId);
+        string? shareAfter = after?.FormatShareOf(memberId);
+
+        return (shareBefore, shareAfter) switch
+        {
+            (null, null) => null,
+            (null, _) => before == null ? $"分攤 {shareAfter}" : $"成為參與者，分攤 {shareAfter}",
+            (_, null) => after == null ? $"原分攤 {shareBefore}" : $"不再是參與者，原分攤 {shareBefore}",
+            _ => shareBefore == shareAfter ? null : $"由 {shareBefore} 改為 {shareAfter}"
+        };
+    }
+
+    /// <summary>
+    /// 一筆花費在某個時間點的原幣與各參與者的分攤
+    /// </summary>
+    private sealed record ShareSnapshot(CurrencyType Currency, IReadOnlyDictionary<int, decimal> AmountsByMemberId)
+    {
+        /// <summary>
+        /// 取花費現有的分攤
+        /// </summary>
+        /// <param name="expense">已載入分攤的花費</param>
+        /// <returns>花費的原幣與尚未作廢的分攤</returns>
+        public static ShareSnapshot Of(Expense expense)
+            => new(
+                expense.Currency,
+                // 編輯存檔後，被作廢的舊分攤軟刪了仍留在已追蹤的集合裡
+                expense.ExpenseShares.Where(share => share.DeletedAt == null)
+                                     .ToDictionary(share => share.GroupMemberId, share => share.Amount));
+
+        /// <summary>
+        /// 組成「JPY 3,000」這種某位成員的分攤寫法
+        /// </summary>
+        /// <param name="memberId">成員 ID</param>
+        /// <returns>幣別代碼加金額；他不是參與者時為 null</returns>
+        public string? FormatShareOf(int memberId)
+            => AmountsByMemberId.TryGetValue(memberId, out decimal amount) ? StringFormatter.FormatMoney(Currency, amount) : null;
     }
 
     private static List<ExpenseShare> ToShares(IEnumerable<ExpenseShareRequest> shares)

@@ -63,6 +63,29 @@ public class SplitBillDataLayerTests
         Assert.Empty(await context.ExpenseShares.ToListAsync(Ct));
     }
 
+    [Fact(DisplayName = "軟刪群組：動態明細一併查不到")]
+    public async Task SoftDeleteGroup_ActivityLogDetailsAreFilteredOut()
+    {
+        // Arrange - 替種子的那一則動態補上一列動態明細
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        context.ActivityLogDetails.Add(new ActivityLogDetail
+        {
+            ActivityLogId = 1,
+            GroupMemberId = SplitBillSeeder.AmyMemberId,
+            Text = "「Amy」分攤 JPY 3,000"
+        });
+        await context.SaveChangesAsync(Ct);
+
+        // Act
+        context.Groups.Remove(await context.Groups.SingleAsync(Ct));
+        await context.SaveChangesAsync(Ct);
+
+        // Assert - 動態明細沒有自己的軟刪欄位，跟著群組走
+        Assert.Empty(await context.ActivityLogDetails.ToListAsync(Ct));
+        Assert.Single(await context.ActivityLogDetails.IgnoreQueryFilters().ToListAsync(Ct));
+    }
+
     [Fact(DisplayName = "軟刪擁有者的使用者：群組與其中的帳目仍然查得到")]
     public async Task SoftDeleteOwnerUser_TheirGroupStillVisible()
     {
@@ -204,6 +227,8 @@ public class SplitBillDataLayerTests
             Id = 2,
             GroupId = SplitBillSeeder.GroupId,
             ActorUserId = SplitBillSeeder.OwnerUserId,
+            ActorMemberId = SplitBillSeeder.MingMemberId,
+            ActorName = "小明",
             ActionType = ActivityActionType.GroupDeleted,
             Summary = "刪除了群組「日本旅遊」"
         });
@@ -289,6 +314,8 @@ public class SplitBillDataLayerTests
             Id = 2,
             GroupId = SplitBillSeeder.GroupId,
             ActorUserId = SplitBillSeeder.OwnerUserId,
+            ActorMemberId = SplitBillSeeder.MingMemberId,
+            ActorName = "小明",
             ActionType = ActivityActionType.SettlementRecorded,
             Summary = "小明 記錄了 Amy 還款 TWD 500"
         });

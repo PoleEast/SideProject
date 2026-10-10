@@ -29,6 +29,7 @@ namespace Project.Data
         public DbSet<ExpenseShare> ExpenseShares { get; set; }
         public DbSet<Settlement> Settlements { get; set; }
         public DbSet<ActivityLog> ActivityLogs { get; set; }
+        public DbSet<ActivityLogDetail> ActivityLogDetails { get; set; }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
@@ -180,18 +181,37 @@ namespace Project.Data
             modelBuilder.Entity<ActivityLog>(entity =>
             {
                 entity.Property(e => e.Summary).HasMaxLength(MaxLengths.ActivityLogSummary);
+                entity.Property(e => e.ActorName).HasMaxLength(MaxLengths.ActivityLogActorName);
 
                 entity.HasOne(e => e.Group).WithMany(g => g.ActivityLogs).HasForeignKey(e => e.GroupId)
                     .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne<User>().WithMany().HasForeignKey(e => e.ActorUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.ActorMember).WithMany().HasForeignKey(e => e.ActorMemberId)
                     .OnDelete(DeleteBehavior.Restrict);
                 entity.HasOne(e => e.TargetExpense).WithMany().HasForeignKey(e => e.TargetExpenseId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasIndex(e => e.GroupId);
 
-                // 動態沒有 DeletedAt —— 它是不可變的事實紀錄，只跟著群組走
+                // 動態沒有 DeletedAt —— 它是不可變的事實紀錄，只跟著群組走。
+                // 刻意不串 ActorMember：操作者被移除後，他做過的動態仍必須查得到
                 entity.HasQueryFilter(e => e.Group.DeletedAt == null);
+            });
+
+            modelBuilder.Entity<ActivityLogDetail>(entity =>
+            {
+                entity.Property(e => e.Text).HasMaxLength(MaxLengths.ActivityLogDetailText);
+
+                entity.HasOne(e => e.ActivityLog).WithMany(activityLog => activityLog.Details).HasForeignKey(e => e.ActivityLogId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne<GroupMember>().WithMany().HasForeignKey(e => e.GroupMemberId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => e.ActivityLogId);
+
+                // 與動態一樣只跟著群組走。刻意不串 GroupMember：成員被移除後，講到他的那一列仍必須保留
+                entity.HasQueryFilter(e => e.ActivityLog.Group.DeletedAt == null);
             });
         }
 

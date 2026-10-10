@@ -108,6 +108,8 @@ public static class SplitBillSeeder
             Id = 1,
             GroupId = GroupId,
             ActorUserId = OwnerUserId,
+            ActorMemberId = MingMemberId,
+            ActorName = "小明",
             ActionType = ActivityActionType.ExpenseCreated,
             TargetExpenseId = ExpenseId,
             Summary = "新增了花費「晚餐」JPY 9,000，由「小明」付款，3 人分攤"

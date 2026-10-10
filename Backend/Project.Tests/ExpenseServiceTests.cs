@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
+using Project.Api.Helpers;
 using Project.Api.Services;
 using Project.Data;
 using Project.Data.Model;
+using Project.Shared.Constants;
 using Project.Shared.DTOs.SplitBill;
 using Project.Shared.Types;
 using Project.Tests.Helpers;
@@ -1199,6 +1201,244 @@ public class ExpenseServiceTests
         // Assert
         Assert.Equal(ResultCode.Conflict, result.Code);
         Assert.Equal("這筆花費剛被其他人修改，請重新整理後再試", result.Message);
+    }
+
+    #endregion
+
+    #region 動態明細
+
+    /// <summary>
+    /// 讀取種子群組最新一則動態的動態明細
+    /// </summary>
+    private static async Task<List<(int MemberId, string Text)>> ReadLatestDetailsAsync(ApplicationDbContext context)
+    {
+        var latest = (await SplitBillActivities.ReadSeededGroupAsync(context, OwnerUserId, limit: 1)).Single();
+
+        return latest.Details.Select(detail => (detail.MemberId, detail.Text)).ToList();
+    }
+
+    [Fact(DisplayName = "動態明細：建立時每位參與者一列，依成員 Id 排序")]
+    public async Task CreateExpense_WritesOneDetailPerParticipant()
+    {
+        // Arrange - 請求裡分攤的順序與成員 Id 相反
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        var request = TaxiRequest();
+        request.Shares.Reverse();
+
+        // Act
+        await CreateService(context).CreateExpenseAsync(GroupId, OwnerUserId, request);
+
+        // Assert
+        Assert.Equal(
+            [(MingMemberId, "「小明」分攤 TWD 400"), (AmyMemberId, "「Amy」分攤 TWD 400"), (HuaMemberId, "「阿華」分攤 TWD 400")],
+            await ReadLatestDetailsAsync(context));
+    }
+
+    [Fact(DisplayName = "動態明細：編輯時只寫分攤有變的人，寫出改前與改後")]
+    public async Task UpdateExpense_SharesAdjusted_WritesBeforeAndAfterForChangedMembersOnly()
+    {
+        // Arrange - 總額不變，小明少 1,000、Amy 多 1,000，阿華不變
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        var request = DinnerRequest();
+        request.Shares = Shares((MingMemberId, 2000m), (AmyMemberId, 4000m), (HuaMemberId, 3000m));
+
+        // Act
+        await CreateService(context).UpdateExpenseAsync(GroupId, ExpenseId, OwnerUserId, request);
+
+        // Assert
+        Assert.Equal(
+            [(MingMemberId, "「小明」由 JPY 3,000 改為 JPY 2,000"), (AmyMemberId, "「Amy」由 JPY 3,000 改為 JPY 4,000")],
+            await ReadLatestDetailsAsync(context));
+    }
+
+    [Fact(DisplayName = "動態明細：編輯時新的參與者寫「成為參與者」，被拿掉的人寫「不再是參與者」")]
+    public async Task UpdateExpense_ParticipantReplaced_WritesJoiningAndLeavingMembers()
+    {
+        // Arrange - 小美取代阿華，其餘兩人不變
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        var mei = new GroupMember { GroupId = GroupId, DisplayName = "小美" };
+        context.GroupMembers.Add(mei);
+        await context.SaveChangesAsync(Ct);
+        var request = DinnerRequest();
+        request.Shares = Shares((MingMemberId, 3000m), (AmyMemberId, 3000m), (mei.Id, 3000m));
+
+        // Act
+        await CreateService(context).UpdateExpenseAsync(GroupId, ExpenseId, OwnerUserId, request);
+
+        // Assert
+        Assert.Equal(
+            [(HuaMemberId, "「阿華」不再是參與者，原分攤 JPY 3,000"), (mei.Id, "「小美」成為參與者，分攤 JPY 3,000")],
+            await ReadLatestDetailsAsync(context));
+    }
+
+    [Fact(DisplayName = "動態明細：編輯沒有動到任何人的分攤時不寫")]
+    public async Task UpdateExpense_SharesUntouched_WritesNoDetails()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        var request = DinnerRequest();
+        request.Name = "居酒屋晚餐";
+
+        // Act
+        await CreateService(context).UpdateExpenseAsync(GroupId, ExpenseId, OwnerUserId, request);
+
+        // Assert
+        Assert.Empty(await ReadLatestDetailsAsync(context));
+    }
+
+    [Fact(DisplayName = "動態明細：只改原幣、數字沒動，每位參與者仍各寫一列")]
+    public async Task UpdateExpense_OnlyCurrencyChanged_WritesDetailForEveryParticipant()
+    {
+        // Arrange - 改成基準幣 TWD，不需要查匯率
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        var request = DinnerRequest();
+        request.Currency = CurrencyType.TWD;
+
+        // Act
+        await CreateService(context).UpdateExpenseAsync(GroupId, ExpenseId, OwnerUserId, request);
+
+        // Assert - 敘述只有金額那一句，逐人的變化由動態明細表達
+        Assert.Equal("修改了花費「晚餐」：金額由 JPY 9,000 改為 TWD 9,000", (await FindUpdateLogAsync(context))!.Summary);
+        Assert.Equal(
+            [
+                (MingMemberId, "「小明」由 JPY 3,000 改為 TWD 3,000"),
+                (AmyMemberId, "「Amy」由 JPY 3,000 改為 TWD 3,000"),
+                (HuaMemberId, "「阿華」由 JPY 3,000 改為 TWD 3,000")
+            ],
+            await ReadLatestDetailsAsync(context));
+    }
+
+    [Fact(DisplayName = "動態明細：刪除時每位參與者一列，寫出原本的分攤")]
+    public async Task DeleteExpense_WritesFormerShareOfEveryParticipant()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+
+        // Act
+        await CreateService(context).DeleteExpenseAsync(GroupId, ExpenseId, OwnerUserId);
+
+        // Assert
+        Assert.Equal(
+            [(MingMemberId, "「小明」原分攤 JPY 3,000"), (AmyMemberId, "「Amy」原分攤 JPY 3,000"), (HuaMemberId, "「阿華」原分攤 JPY 3,000")],
+            await ReadLatestDetailsAsync(context));
+    }
+
+    [Fact(DisplayName = "動態明細：參與者已被移除時，他的那一列照樣寫得出也讀得到")]
+    public async Task DeleteExpense_WithRemovedParticipant_StillWritesHisDetail()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SettleAndRemoveAmyAsync(context);
+
+        // Act
+        await CreateService(context).DeleteExpenseAsync(GroupId, ExpenseId, OwnerUserId);
+
+        // Assert
+        Assert.Contains((AmyMemberId, "「Amy」原分攤 JPY 3,000"), await ReadLatestDetailsAsync(context));
+    }
+
+    [Fact(DisplayName = "動態明細：USD 的金額帶兩位小數")]
+    public async Task CreateExpense_UsdShares_WritesTwoDecimals()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        var exchangeRateApiClient = new FakeExchangeRateApiClient();
+        exchangeRateApiClient.SetRate(CurrencyType.USD, CurrencyType.TWD, 31.5m);
+        var request = TaxiRequest();
+        request.Currency = CurrencyType.USD;
+        request.Amount = 12.50m;
+        request.Shares = Shares((MingMemberId, 6.25m), (AmyMemberId, 6.25m));
+
+        // Act
+        await CreateService(context, exchangeRateApiClient).CreateExpenseAsync(GroupId, OwnerUserId, request);
+
+        // Assert
+        Assert.Equal(
+            [(MingMemberId, "「小明」分攤 USD 6.25"), (AmyMemberId, "「Amy」分攤 USD 6.25")],
+            await ReadLatestDetailsAsync(context));
+    }
+
+    [Fact(DisplayName = "動態明細：參與者到現役成員上限、名字與金額都到上限時，建立、編輯、刪除皆成功")]
+    public async Task ExpenseLifecycle_MaxParticipantsLongestNamesAndLargestAmount_Succeeds()
+    {
+        // Arrange - 16 位現役成員，名字都是 32 個字；第一位的分攤接近金額上限
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(context, activeCount: MemberCapacityRules.MaxActiveMembers);
+
+        var members = await context.GroupMembers.OrderBy(member => member.Id).ToListAsync(Ct);
+
+        foreach (var member in members)
+        {
+            member.DisplayName = member.Id.ToString().PadLeft(MaxLengths.GroupMemberDisplayName, '名');
+        }
+
+        await context.SaveChangesAsync(Ct);
+        context.ChangeTracker.Clear();
+
+        var exchangeRateApiClient = new FakeExchangeRateApiClient();
+        exchangeRateApiClient.SetRate(CurrencyType.USD, CurrencyType.TWD, 31.5m);
+        var service = CreateService(context, exchangeRateApiClient);
+
+        var memberIds = members.Select(member => member.Id).ToList();
+        var request = TaxiRequest();
+        request.Currency = CurrencyType.USD;
+        request.Amount = 999_999_999.99m;
+        request.PayerId = MingMemberId;
+        request.Shares = Shares([(memberIds[0], 999_999_984.99m), .. memberIds.Skip(1).Select(memberId => (memberId, 1.00m))]);
+
+        var adjustedRequest = TaxiRequest();
+        adjustedRequest.Currency = request.Currency;
+        adjustedRequest.Amount = request.Amount;
+        adjustedRequest.PayerId = request.PayerId;
+        adjustedRequest.Shares = Shares(
+            [(memberIds[0], 999_999_983.99m), (memberIds[1], 2.00m), .. memberIds.Skip(2).Select(memberId => (memberId, 1.00m))]);
+
+        // Act
+        var created = await service.CreateExpenseAsync(GroupId, OwnerUserId, request);
+        var createdDetails = await ReadLatestDetailsAsync(context);
+        var updated = await service.UpdateExpenseAsync(GroupId, created.Value!.Id, OwnerUserId, adjustedRequest);
+        var updatedDetails = await ReadLatestDetailsAsync(context);
+        var deleted = await service.DeleteExpenseAsync(GroupId, created.Value.Id, OwnerUserId);
+        var deletedDetails = await ReadLatestDetailsAsync(context);
+
+        // Assert - 動態明細與花費在同一次存檔，存不進去會讓整個操作失敗
+        Assert.True(created.IsSuccess);
+        Assert.True(updated.IsSuccess);
+        Assert.True(deleted.IsSuccess);
+        Assert.Equal(MemberCapacityRules.MaxActiveMembers, createdDetails.Count);
+        Assert.Equal(2, updatedDetails.Count);
+        Assert.Equal(MemberCapacityRules.MaxActiveMembers, deletedDetails.Count);
+    }
+
+    /// <remarks>
+    /// 並行衝突時同樣不該留下動態，但無法在此驗證：InMemory 的存檔不是交易，衝突之前已寫入的列不會復原。
+    /// SQL Server 上同一次 SaveChanges 即一個交易，花費、動態與動態明細會一起復原。
+    /// </remarks>
+    [Fact(DisplayName = "動態明細：編輯未通過驗證時，不留下動態與動態明細")]
+    public async Task UpdateExpense_ValidationFails_WritesNoActivity()
+    {
+        // Arrange - 分攤加總不等於金額
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        var request = DinnerRequest();
+        request.Shares = Shares((MingMemberId, 1m), (AmyMemberId, 1m), (HuaMemberId, 1m));
+
+        // Act
+        var result = await CreateService(context).UpdateExpenseAsync(GroupId, ExpenseId, OwnerUserId, request);
+
+        // Assert - 只有種子那一則
+        Assert.Equal(ResultCode.ValidationError, result.Code);
+        var activity = Assert.Single(await SplitBillActivities.ReadSeededGroupAsync(context, OwnerUserId));
+        Assert.Empty(activity.Details);
     }
 
     #endregion

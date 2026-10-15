@@ -128,3 +128,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+::view-transition-group(*) {
+  animation-duration: 300ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
+}

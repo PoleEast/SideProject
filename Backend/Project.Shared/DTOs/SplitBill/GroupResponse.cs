@@ -14,6 +14,9 @@ public class GroupResponse
     [Description("群組描述")]
     public string Description { get; set; } = string.Empty;
 
+    [Description("群組圖示")]
+    public GroupIconType Icon { get; set; }
+
     [Description("基準幣")]
     public CurrencyType BaseCurrency { get; set; }
 

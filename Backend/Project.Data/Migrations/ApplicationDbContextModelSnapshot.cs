@@ -263,6 +263,10 @@ namespace Project.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("InviteCode")
                         .IsRequired()
                         .HasMaxLength(16)

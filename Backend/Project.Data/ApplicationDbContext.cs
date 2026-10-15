@@ -39,6 +39,7 @@ namespace Project.Data
             configurationBuilder.Properties<AvatarType>().HaveConversion<string>();
             configurationBuilder.Properties<ExpenseCategoryType>().HaveConversion<string>();
             configurationBuilder.Properties<ActivityActionType>().HaveConversion<string>();
+            configurationBuilder.Properties<GroupIconType>().HaveConversion<string>();
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

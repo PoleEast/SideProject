@@ -11,6 +11,7 @@ namespace Project.Data.Model
         public int OwnerUserId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        public GroupIconType Icon { get; set; }
         public CurrencyType BaseCurrency { get; set; }
         public string InviteCode { get; set; } = string.Empty;
         public DateTimeOffset? ClosedAt { get; set; }

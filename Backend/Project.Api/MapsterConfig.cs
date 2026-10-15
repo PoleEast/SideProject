@@ -144,6 +144,7 @@ namespace Project.Api
                 .Map(d => d.Id, s => s.Id)
                 .Map(d => d.Name, s => s.Name)
                 .Map(d => d.Description, s => s.Description)
+                .Map(d => d.Icon, s => s.Icon)
                 .Map(d => d.BaseCurrency, s => s.BaseCurrency)
                 .Map(d => d.InviteCode, s => s.InviteCode)
                 .Map(d => d.ClosedAt, s => s.ClosedAt)

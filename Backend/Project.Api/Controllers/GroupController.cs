@@ -17,7 +17,7 @@ public class GroupController(GroupService service) : ControllerBase
     /// 取得呼叫者參與的所有群組
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<List<GroupResponse>>> GetAll()
+    public async Task<ActionResult<List<GroupListItemResponse>>> GetAll()
     {
         if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int userId))
         {
@@ -97,7 +97,7 @@ public class GroupController(GroupService service) : ControllerBase
     }
 
     /// <summary>
-    /// 更新群組的名稱、描述與基準幣
+    /// 更新群組的名稱、描述、群組圖示與基準幣
     /// </summary>
     [HttpPut("{id}")]
     public async Task<ActionResult<GroupResponse>> Update(int id, UpdateGroupRequest request)

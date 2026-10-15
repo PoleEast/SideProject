@@ -2,6 +2,7 @@ using Mapster;
 using Microsoft.EntityFrameworkCore;
 using Project.Api.Common;
 using Project.Api.Helpers;
+using Project.Core.Common;
 using Project.Data;
 using Project.Data.Model;
 using Project.Shared.DTOs;
@@ -10,7 +11,7 @@ using Project.Shared.Types;
 
 namespace Project.Api.Services;
 
-public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> logger)
+public class GroupService(ApplicationDbContext dbContext, SettlementService settlementService, ILogger<GroupService> logger)
 {
     /// <summary>
     /// 建立群組，並將建立者加入為第一位成員
@@ -39,6 +40,7 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
             OwnerUserId = userId,
             Name = request.Name,
             Description = request.Description,
+            Icon = request.Icon!.Value,
             BaseCurrency = request.BaseCurrency!.Value,
             InviteCode = InviteCodeGenerator.Generate(),
             GroupMembers = [owner]
@@ -70,13 +72,56 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
         return Result<GroupResponse>.Success(group.Adapt<GroupResponse>());
     }
 
-    public async Task<Result<List<GroupResponse>>> GetMyGroupsAsync(int userId)
+    /// <summary>
+    /// 取得呼叫者能存取的所有群組，每一項附上呼叫者在其中的帳
+    /// </summary>
+    /// <remarks>
+    /// 群組連同現役成員數與最近一則動態的時間一次查回，兩兩淨額也一次推導所有群組。
+    /// 不處理沒有任何動態的群組 —— 建立群組時即寫入一則動態。
+    /// </remarks>
+    /// <param name="userId">呼叫者的使用者 ID</param>
+    /// <returns>未排序的清單項目，進行中與已結束的群組都在其中</returns>
+    public async Task<Result<List<GroupListItemResponse>>> GetMyGroupsAsync(int userId)
     {
-        var groups = await dbContext.Groups.AsNoTracking()
-                                           .AccessibleBy(userId)
-                                           .ToListAsync();
+        var rows = await dbContext.Groups.AsNoTracking()
+                                         .AccessibleBy(userId)
+                                         .Select(group => new
+                                         {
+                                             Group = group,
+                                             CallerMemberId = group.GroupMembers.Where(member => member.UserId == userId)
+                                                                                .Select(member => member.Id)
+                                                                                .First(),
+                                             ActiveMemberCount = group.GroupMembers.Count(),
+                                             LastActivityAt = group.ActivityLogs.Max(activityLog => activityLog.CreatedAt)
+                                         })
+                                         .ToListAsync();
 
-        return Result<List<GroupResponse>>.Success(groups.Adapt<List<GroupResponse>>());
+        var balancesByGroup = await settlementService.DeriveBalancesByGroupAsync(rows.Select(row => row.Group).ToList());
+
+        var items = rows.Select(row =>
+        {
+            var balances = balancesByGroup[row.Group.Id];
+            var callerBalances = balances.Where(balance => balance.CreditorMemberId == row.CallerMemberId
+                                                        || balance.DebtorMemberId == row.CallerMemberId)
+                                         .ToList();
+
+            return new GroupListItemResponse
+            {
+                Id = row.Group.Id,
+                Name = row.Group.Name,
+                Icon = row.Group.Icon,
+                BaseCurrency = row.Group.BaseCurrency,
+                ClosedAt = row.Group.ClosedAt,
+                ActiveMemberCount = row.ActiveMemberCount,
+                // 相加的是捨入後的兩兩淨額，才等於照結算逐筆收付之後實際的差額
+                PersonalNet = callerBalances.Sum(balance => balance.CreditorMemberId == row.CallerMemberId ? balance.Amount : -balance.Amount),
+                IsSettled = callerBalances.Count == 0,
+                IsEveryoneSettled = balances.Count == 0,
+                LastActivityAt = row.LastActivityAt
+            };
+        }).ToList();
+
+        return Result<List<GroupListItemResponse>>.Success(items);
     }
 
     public async Task<Result<GroupResponse>> GetGroupByIdAsync(int groupId, int userId)
@@ -94,7 +139,7 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
     }
 
     /// <summary>
-    /// 更新群組的名稱、描述與基準幣
+    /// 更新群組的名稱、描述、群組圖示與基準幣
     /// </summary>
     /// <remarks>
     /// 基準幣僅在群組尚無任何花費與還款時可變更 —— 已鎖入的 Rate 是「原幣 → 基準幣」，
@@ -136,6 +181,11 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
             changes.Add($"名稱由「{group.Name}」改為「{request.Name}」");
         }
 
+        if (request.Icon.HasValue && request.Icon.Value != group.Icon)
+        {
+            changes.Add($"圖示由「{group.Icon.GetDescription()}」改為「{request.Icon.Value.GetDescription()}」");
+        }
+
         if (isCurrencyChanging)
         {
             changes.Add($"基準幣由 {group.BaseCurrency} 改為 {request.BaseCurrency!.Value}");
@@ -167,6 +217,11 @@ public class GroupService(ApplicationDbContext dbContext, ILogger<GroupService> 
         if (request.Description != null)
         {
             group.Description = request.Description;
+        }
+
+        if (request.Icon.HasValue)
+        {
+            group.Icon = request.Icon.Value;
         }
 
         if (request.BaseCurrency.HasValue)

@@ -19,4 +19,8 @@ public class CreateGroupRequest
     [Description("基準幣")]
     [Required(ErrorMessage = "請傳入基準幣")]
     public CurrencyType? BaseCurrency { get; set; }
+
+    [Description("群組圖示")]
+    [Required(ErrorMessage = "請傳入群組圖示")]
+    public GroupIconType? Icon { get; set; }
 }

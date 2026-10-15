@@ -18,7 +18,7 @@ public static class SplitBillAccess
     /// </summary>
     public static async Task<ResultCode> ReadSeededGroupAsync(ApplicationDbContext context, int userId)
     {
-        var groupService = new GroupService(context, NullLogger<GroupService>.Instance);
+        var groupService = new GroupService(context, new SettlementService(context, NullLogger<SettlementService>.Instance), NullLogger<GroupService>.Instance);
 
         return (await groupService.GetGroupByIdAsync(SplitBillSeeder.GroupId, userId)).Code;
     }

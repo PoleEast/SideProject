@@ -8,12 +8,13 @@ using Project.Shared.Constants;
 using Project.Shared.DTOs.SplitBill;
 using Project.Shared.Types;
 using Project.Tests.Helpers;
+using System.ComponentModel.DataAnnotations;
 
 namespace Project.Tests;
 
 /// <summary>
 /// GroupService 整合測試
-/// 使用 InMemory 資料庫，透過服務層驗證存取檢查、擁有者特權、基準幣凍結與動態寫入
+/// 使用 InMemory 資料庫，透過服務層驗證存取檢查、擁有者特權、基準幣凍結、動態寫入，以及群組清單的個人淨額與結清狀態
 /// </summary>
 /// <remarks>
 /// 邀請碼的唯一索引不在此驗證：InMemory provider 不強制唯一約束，寫出來的測試會恆過。
@@ -27,7 +28,7 @@ public class GroupServiceTests
     private const int AmyUserId = 2;
 
     private static GroupService CreateService(ApplicationDbContext context)
-        => new(context, NullLogger<GroupService>.Instance);
+        => new(context, new SettlementService(context, NullLogger<SettlementService>.Instance), NullLogger<GroupService>.Instance);
 
     private static async Task SeedUsersAsync(ApplicationDbContext context)
     {
@@ -38,11 +39,12 @@ public class GroupServiceTests
         await context.SaveChangesAsync(Ct);
     }
 
-    private static CreateGroupRequest NewGroupRequest(string name = "日本旅遊") => new()
+    private static CreateGroupRequest NewGroupRequest(string name = "日本旅遊", GroupIconType icon = GroupIconType.Travel) => new()
     {
         Name = name,
         Description = "2026 夏天",
-        BaseCurrency = CurrencyType.TWD
+        BaseCurrency = CurrencyType.TWD,
+        Icon = icon
     };
 
     private static async Task<GroupMember> AddAmyAsMemberAsync(ApplicationDbContext context, int groupId)
@@ -73,6 +75,110 @@ public class GroupServiceTests
             Rate = 0.212345m,
             Date = new DateOnly(2026, 7, 1),
             CreatedByUserId = MingUserId
+        });
+        await context.SaveChangesAsync(Ct);
+    }
+
+    private static async Task<GroupListItemResponse> ReadListItemAsync(ApplicationDbContext context, int userId, int groupId)
+        => (await CreateService(context).GetMyGroupsAsync(userId)).Value!.Single(item => item.Id == groupId);
+
+    /// <summary>
+    /// 讓種子群組裡的 Amy 綁定 AmyUserId，從她的角度讀得到群組清單
+    /// </summary>
+    private static async Task BindSeededAmyAsync(ApplicationDbContext context)
+    {
+        await SplitBillSeeder.AddUserAsync(context, AmyUserId, "Amy");
+        var amy = await context.GroupMembers.SingleAsync(member => member.Id == SplitBillSeeder.AmyMemberId, Ct);
+        amy.UserId = AmyUserId;
+        await context.SaveChangesAsync(Ct);
+    }
+
+    /// <summary>
+    /// 在種子群組補種一筆還款
+    /// </summary>
+    private static async Task AddSeededGroupRepaymentAsync(ApplicationDbContext context, int fromMemberId, int toMemberId, decimal amount)
+    {
+        context.Settlements.Add(new Settlement
+        {
+            GroupId = SplitBillSeeder.GroupId,
+            FromMemberId = fromMemberId,
+            ToMemberId = toMemberId,
+            Amount = amount,
+            Date = new DateOnly(2026, 7, 6),
+            CreatedByUserId = SplitBillSeeder.OwnerUserId
+        });
+        await context.SaveChangesAsync(Ct);
+    }
+
+    /// <summary>
+    /// 不經移除規則，直接把成員標為已移除
+    /// </summary>
+    private static async Task RemoveMemberAsync(ApplicationDbContext context, int memberId)
+    {
+        var member = await context.GroupMembers.SingleAsync(member => member.Id == memberId, Ct);
+        context.Remove(member);
+        await context.SaveChangesAsync(Ct);
+    }
+
+    private const int JpyGroupId = 2;
+    private const int JpyMingMemberId = 20;
+    private const int AnMemberId = 21;
+    private const int ZheMemberId = 22;
+    private const int MiaMemberId = 23;
+
+    /// <summary>
+    /// 在種子之外再建一個基準幣為 JPY、還沒有任何帳的群組，成員是小明（綁定種子的擁有者）、小安、阿哲與 Mia
+    /// </summary>
+    /// <remarks>
+    /// 小明因此同時在兩個群組裡，種子群組的帳若混進這個群組的計算就會被看出來。
+    /// </remarks>
+    private static async Task SeedJpyGroupAsync(ApplicationDbContext context)
+    {
+        context.Groups.Add(new Group
+        {
+            Id = JpyGroupId,
+            OwnerUserId = SplitBillSeeder.OwnerUserId,
+            Name = "大阪行",
+            Icon = GroupIconType.Travel,
+            BaseCurrency = CurrencyType.JPY,
+            InviteCode = "OSAKA123"
+        });
+        context.GroupMembers.AddRange(
+            new GroupMember { Id = JpyMingMemberId, GroupId = JpyGroupId, DisplayName = "小明", UserId = SplitBillSeeder.OwnerUserId },
+            new GroupMember { Id = AnMemberId, GroupId = JpyGroupId, DisplayName = "小安" },
+            new GroupMember { Id = ZheMemberId, GroupId = JpyGroupId, DisplayName = "阿哲" },
+            new GroupMember { Id = MiaMemberId, GroupId = JpyGroupId, DisplayName = "Mia" });
+
+        // 建立群組時一定會寫下這一則
+        context.ActivityLogs.Add(new ActivityLog
+        {
+            GroupId = JpyGroupId,
+            ActorUserId = SplitBillSeeder.OwnerUserId,
+            ActorMemberId = JpyMingMemberId,
+            ActorName = "小明",
+            ActionType = ActivityActionType.GroupCreated,
+            Summary = "建立了群組「大阪行」，基準幣為 JPY"
+        });
+        await context.SaveChangesAsync(Ct);
+    }
+
+    /// <summary>
+    /// 在大阪行補種一筆 JPY 花費：由被欠的一方墊付，只有欠錢的一方一位參與者
+    /// </summary>
+    private static async Task AddJpyGroupDebtAsync(ApplicationDbContext context, int debtorMemberId, int creditorMemberId, decimal amount)
+    {
+        context.Expenses.Add(new Expense
+        {
+            GroupId = JpyGroupId,
+            PayerId = creditorMemberId,
+            Name = "代墊",
+            Category = ExpenseCategoryType.Other,
+            Currency = CurrencyType.JPY,
+            Amount = amount,
+            Rate = 1m,
+            Date = new DateOnly(2026, 7, 1),
+            CreatedByUserId = SplitBillSeeder.OwnerUserId,
+            ExpenseShares = [new ExpenseShare { GroupMemberId = debtorMemberId, Amount = amount }]
         });
         await context.SaveChangesAsync(Ct);
     }
@@ -150,6 +256,38 @@ public class GroupServiceTests
         Assert.Contains("日本旅遊", log.Summary);
     }
 
+    [Fact(DisplayName = "建立群組：選定的群組圖示被存入，並出現在回應與單一群組的資料裡")]
+    public async Task CreateGroup_WithIcon_StoresIconAndReturnsIt()
+    {
+        // Arrange - 不用旅行：它是列舉的預設值，圖示沒被存入時照樣會讀到它
+        using var context = DbContextTestHelper.CreateContext();
+        await SeedUsersAsync(context);
+        var service = CreateService(context);
+
+        // Act
+        var result = await service.CreateGroupAsync(MingUserId, NewGroupRequest(icon: GroupIconType.Dining));
+
+        // Assert
+        Assert.Equal(GroupIconType.Dining, result.Value!.Icon);
+        Assert.Equal(GroupIconType.Dining, (await service.GetGroupByIdAsync(result.Value.Id, MingUserId)).Value!.Icon);
+    }
+
+    [Fact(DisplayName = "建立群組：沒帶群組圖示時，請求驗證不通過")]
+    public void CreateGroupRequest_MissingIcon_FailsValidation()
+    {
+        // Arrange - 必填由請求的驗證把關，Controller 在呼叫服務之前就會回 400
+        var request = NewGroupRequest();
+        request.Icon = null;
+        var results = new List<ValidationResult>();
+
+        // Act
+        bool isValid = Validator.TryValidateObject(request, new ValidationContext(request), results, validateAllProperties: true);
+
+        // Assert
+        Assert.False(isValid);
+        Assert.Equal("請傳入群組圖示", Assert.Single(results).ErrorMessage);
+    }
+
     [Fact(DisplayName = "建立群組：使用者不存在時回 Unauthorized")]
     public async Task CreateGroup_UnknownUser_ReturnsUnauthorized()
     {
@@ -205,15 +343,19 @@ public class GroupServiceTests
 
     #region 存取檢查
 
-    [Fact(DisplayName = "查詢群組清單：只回傳自己參與的群組")]
+    [Fact(DisplayName = "查詢群組清單：只回傳自己是現役成員的群組")]
     public async Task GetMyGroups_ReturnsOnlyOwnGroups()
     {
-        // Arrange
+        // Arrange - 小明曾是「Amy 的群組」的成員，但已被移除
         using var context = DbContextTestHelper.CreateContext();
         await SeedUsersAsync(context);
         var service = CreateService(context);
         await service.CreateGroupAsync(MingUserId, NewGroupRequest("小明的群組"));
-        await service.CreateGroupAsync(AmyUserId, NewGroupRequest("Amy 的群組"));
+        var amyGroup = await service.CreateGroupAsync(AmyUserId, NewGroupRequest("Amy 的群組"));
+        var removedMing = new GroupMember { GroupId = amyGroup.Value!.Id, UserId = MingUserId, DisplayName = "小明" };
+        context.GroupMembers.Add(removedMing);
+        await context.SaveChangesAsync(Ct);
+        await RemoveMemberAsync(context, removedMing.Id);
 
         // Act
         var result = await service.GetMyGroupsAsync(MingUserId);
@@ -417,6 +559,84 @@ public class GroupServiceTests
         Assert.Equal("修改了群組描述", log.Summary);
     }
 
+    [Fact(DisplayName = "更新群組：換群組圖示寫一則動態，敘述含前後的中文名稱")]
+    public async Task UpdateGroup_IconChanged_WritesActivityWithChineseNames()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SeedUsersAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateGroupAsync(MingUserId, NewGroupRequest(icon: GroupIconType.Travel));
+
+        // Act
+        var result = await service.UpdateGroupAsync(
+            created.Value!.Id, MingUserId, new UpdateGroupRequest { Icon = GroupIconType.Dining });
+
+        // Assert
+        Assert.Equal(GroupIconType.Dining, result.Value!.Icon);
+
+        var log = await context.ActivityLogs
+            .SingleAsync(activityLog => activityLog.ActionType == ActivityActionType.GroupUpdated, Ct);
+        Assert.Equal("修改了群組圖示由「旅行」改為「聚餐」", log.Summary);
+    }
+
+    [Fact(DisplayName = "更新群組：同時改名稱與群組圖示，兩項變動記在同一則動態")]
+    public async Task UpdateGroup_NameAndIconChanged_WritesOneActivityLog()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SeedUsersAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateGroupAsync(MingUserId, NewGroupRequest(icon: GroupIconType.Travel));
+
+        // Act
+        await service.UpdateGroupAsync(
+            created.Value!.Id, MingUserId, new UpdateGroupRequest { Name = "週五晚餐", Icon = GroupIconType.Dining });
+
+        // Assert
+        var log = await context.ActivityLogs
+            .SingleAsync(activityLog => activityLog.ActionType == ActivityActionType.GroupUpdated, Ct);
+        Assert.Equal("修改了群組名稱由「日本旅遊」改為「週五晚餐」、圖示由「旅行」改為「聚餐」", log.Summary);
+    }
+
+    [Fact(DisplayName = "更新群組：送出的群組圖示與現況相同時不寫動態")]
+    public async Task UpdateGroup_SameIcon_WritesNoActivityLog()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SeedUsersAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateGroupAsync(MingUserId, NewGroupRequest(icon: GroupIconType.Dining));
+
+        // Act
+        var result = await service.UpdateGroupAsync(
+            created.Value!.Id, MingUserId, new UpdateGroupRequest { Icon = GroupIconType.Dining });
+
+        // Assert - 只剩建立群組那一筆
+        Assert.True(result.IsSuccess);
+        var log = await context.ActivityLogs.SingleAsync(Ct);
+        Assert.Equal(ActivityActionType.GroupCreated, log.ActionType);
+    }
+
+    [Fact(DisplayName = "更新群組：沒帶群組圖示時，圖示維持不變")]
+    public async Task UpdateGroup_IconOmitted_KeepsIcon()
+    {
+        // Arrange - 不用旅行：它是列舉的預設值，圖示被清成預設值時照樣會讀到它
+        using var context = DbContextTestHelper.CreateContext();
+        await SeedUsersAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateGroupAsync(MingUserId, NewGroupRequest(icon: GroupIconType.Dining));
+
+        // Act
+        var result = await service.UpdateGroupAsync(
+            created.Value!.Id, MingUserId, new UpdateGroupRequest { Name = "週五晚餐" });
+
+        // Assert
+        Assert.Equal(GroupIconType.Dining, result.Value!.Icon);
+        Assert.Equal("修改了群組名稱由「日本旅遊」改為「週五晚餐」", (await context.ActivityLogs
+            .SingleAsync(activityLog => activityLog.ActionType == ActivityActionType.GroupUpdated, Ct)).Summary);
+    }
+
     [Fact(DisplayName = "更新群組：名稱與描述用到上限、同時變更基準幣，仍能成功並寫入動態")]
     public async Task UpdateGroup_LongestValuesOnAllFields_WritesActivityLog()
     {
@@ -430,6 +650,7 @@ public class GroupServiceTests
         {
             Name = new string('新', MaxLengths.GroupName),
             BaseCurrency = CurrencyType.JPY,
+            Icon = GroupIconType.Shopping,
             Description = new string('描', MaxLengths.GroupDescription)
         };
 
@@ -661,6 +882,221 @@ public class GroupServiceTests
 
         // Assert
         Assert.Equal(ResultCode.NotFound, result.Code);
+    }
+
+    #endregion
+
+    #region 群組清單
+
+    [Fact(DisplayName = "群組清單：剛建立的群組帶名稱、群組圖示與基準幣，只有擁有者一位現役成員，已結清且全員結清")]
+    public async Task GetMyGroups_NewGroup_ReturnsGroupFieldsAndSettled()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SeedUsersAsync(context);
+        var service = CreateService(context);
+        var created = await service.CreateGroupAsync(MingUserId, NewGroupRequest(icon: GroupIconType.Dining));
+
+        // Act
+        var result = await service.GetMyGroupsAsync(MingUserId);
+
+        // Assert
+        var item = Assert.Single(result.Value!);
+        Assert.Equal(
+            (created.Value!.Id, "日本旅遊", GroupIconType.Dining, CurrencyType.TWD, (DateTimeOffset?)null, 1),
+            (item.Id, item.Name, item.Icon, item.BaseCurrency, item.ClosedAt, item.ActiveMemberCount));
+        Assert.Equal((0m, true, true), (item.PersonalNet, item.IsSettled, item.IsEveryoneSettled));
+    }
+
+    [Fact(DisplayName = "群組清單：剛建立的群組，最近一則動態的時間是建立群組那一則")]
+    public async Task GetMyGroups_NewGroup_LastActivityAtIsGroupCreation()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SeedUsersAsync(context);
+        var service = CreateService(context);
+        await service.CreateGroupAsync(MingUserId, NewGroupRequest());
+
+        // Act
+        var result = await service.GetMyGroupsAsync(MingUserId);
+
+        // Assert
+        var createdLog = await context.ActivityLogs.SingleAsync(Ct);
+        Assert.Equal(createdLog.CreatedAt, Assert.Single(result.Value!).LastActivityAt);
+    }
+
+    #endregion
+
+    #region 個人淨額
+
+    [Fact(DisplayName = "個人淨額：別人欠我時為正，跨幣別的分攤以鎖入的 Rate 換算，並扣掉已記錄的還款")]
+    public async Task GetMyGroups_OthersOweMe_PersonalNetIsPositive()
+    {
+        // Arrange - 種子：Amy 欠小明 637.035 − 500 → 137，阿華欠小明 637.035 → 637
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+
+        // Act
+        var result = await CreateService(context).GetMyGroupsAsync(SplitBillSeeder.OwnerUserId);
+
+        // Assert - 沒乘 Rate 會是 5,500；沒扣還款會是 1,274
+        Assert.Equal(774m, Assert.Single(result.Value!).PersonalNet);
+    }
+
+    [Fact(DisplayName = "個人淨額：我欠別人時為負")]
+    public async Task GetMyGroups_IOweOthers_PersonalNetIsNegative()
+    {
+        // Arrange - Amy 欠小明 TWD 137
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await BindSeededAmyAsync(context);
+
+        // Act
+        var item = await ReadListItemAsync(context, AmyUserId, SplitBillSeeder.GroupId);
+
+        // Assert
+        Assert.Equal(-137m, item.PersonalNet);
+    }
+
+    [Fact(DisplayName = "個人淨額：小安欠我 5,000、阿哲欠我 1,000、我欠 Mia 2,000 時為 4,000，別人之間的帳不計入")]
+    public async Task GetMyGroups_SeveralBalances_PersonalNetOffsetsOnlyMine()
+    {
+        // Arrange - 小安與阿哲之間另有一筆帳，跟小明無關
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SeedJpyGroupAsync(context);
+        await AddJpyGroupDebtAsync(context, AnMemberId, JpyMingMemberId, 5000m);
+        await AddJpyGroupDebtAsync(context, ZheMemberId, JpyMingMemberId, 1000m);
+        await AddJpyGroupDebtAsync(context, JpyMingMemberId, MiaMemberId, 2000m);
+        await AddJpyGroupDebtAsync(context, ZheMemberId, AnMemberId, 300m);
+
+        // Act
+        var item = await ReadListItemAsync(context, SplitBillSeeder.OwnerUserId, JpyGroupId);
+
+        // Assert - 混進種子群組的 774 會是 4,774；計入別人之間的帳會差 300
+        Assert.Equal(4000m, item.PersonalNet);
+    }
+
+    [Fact(DisplayName = "個人淨額：已移除成員參與過的帳照常計入")]
+    public async Task GetMyGroups_DebtorRemoved_PersonalNetStillIncludesHisBalance()
+    {
+        // Arrange - 阿華還欠著小明 TWD 637 就被移除
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await RemoveMemberAsync(context, SplitBillSeeder.HuaMemberId);
+
+        // Act
+        var item = await ReadListItemAsync(context, SplitBillSeeder.OwnerUserId, SplitBillSeeder.GroupId);
+
+        // Assert - 經由現役成員查分攤的話，阿華的 637 會消失而剩 137
+        Assert.Equal(774m, item.PersonalNet);
+    }
+
+    #endregion
+
+    #region 已結清與全員結清
+
+    [Fact(DisplayName = "已結清：小安欠我 600、我欠 Mia 600 時，個人淨額為 0 但尚未結清")]
+    public async Task GetMyGroups_PersonalNetZeroButBalancesRemain_NotSettled()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SeedJpyGroupAsync(context);
+        await AddJpyGroupDebtAsync(context, AnMemberId, JpyMingMemberId, 600m);
+        await AddJpyGroupDebtAsync(context, JpyMingMemberId, MiaMemberId, 600m);
+
+        // Act
+        var item = await ReadListItemAsync(context, SplitBillSeeder.OwnerUserId, JpyGroupId);
+
+        // Assert - 結算不做最小化轉帳，兩筆都還要處理
+        Assert.Equal((0m, false, false), (item.PersonalNet, item.IsSettled, item.IsEveryoneSettled));
+    }
+
+    [Fact(DisplayName = "已結清：我跟每個人都清了、但阿華還欠小明時，我已結清，群組不是全員結清")]
+    public async Task GetMyGroups_OnlyOthersHaveBalances_SettledButNotEveryone()
+    {
+        // Arrange - Amy 還清欠小明的 TWD 137，只剩阿華欠小明 TWD 637
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await BindSeededAmyAsync(context);
+        await AddSeededGroupRepaymentAsync(context, SplitBillSeeder.AmyMemberId, SplitBillSeeder.MingMemberId, 137m);
+
+        // Act
+        var item = await ReadListItemAsync(context, AmyUserId, SplitBillSeeder.GroupId);
+
+        // Assert
+        Assert.Equal((0m, true, false), (item.PersonalNet, item.IsSettled, item.IsEveryoneSettled));
+    }
+
+    [Fact(DisplayName = "全員結清：兩兩淨額只剩換算的零頭、捨入後歸 0 時，算已結清且全員結清")]
+    public async Task GetMyGroups_BalancesRoundToZero_EveryoneSettled()
+    {
+        // Arrange - Amy 與阿華照結算的整數還清，各自只剩 0.035 的零頭
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await AddSeededGroupRepaymentAsync(context, SplitBillSeeder.AmyMemberId, SplitBillSeeder.MingMemberId, 137m);
+        await AddSeededGroupRepaymentAsync(context, SplitBillSeeder.HuaMemberId, SplitBillSeeder.MingMemberId, 637m);
+
+        // Act
+        var item = await ReadListItemAsync(context, SplitBillSeeder.OwnerUserId, SplitBillSeeder.GroupId);
+
+        // Assert
+        Assert.Equal((0m, true, true), (item.PersonalNet, item.IsSettled, item.IsEveryoneSettled));
+    }
+
+    #endregion
+
+    #region 成員數、動態時間與已結束
+
+    [Fact(DisplayName = "群組清單：現役成員數不含已移除成員")]
+    public async Task GetMyGroups_RemovedMembers_NotCountedInActiveMemberCount()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await SplitBillSeeder.FillMembersAsync(context, activeCount: 5, removedCount: 2);
+
+        // Act
+        var item = await ReadListItemAsync(context, SplitBillSeeder.OwnerUserId, SplitBillSeeder.GroupId);
+
+        // Assert
+        Assert.Equal(5, item.ActiveMemberCount);
+    }
+
+    [Fact(DisplayName = "群組清單：最近一則動態的時間是最新那一則動態的時間")]
+    public async Task GetMyGroups_SeveralActivities_LastActivityAtIsNewest()
+    {
+        // Arrange - 種子已有一則新增花費的動態，改名再寫一則
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await CreateService(context).UpdateGroupAsync(
+            SplitBillSeeder.GroupId, SplitBillSeeder.OwnerUserId, new UpdateGroupRequest { Name = "日本旅遊 2026" });
+
+        // Act
+        var item = await ReadListItemAsync(context, SplitBillSeeder.OwnerUserId, SplitBillSeeder.GroupId);
+
+        // Assert
+        var renamedLog = await context.ActivityLogs
+            .SingleAsync(activityLog => activityLog.ActionType == ActivityActionType.GroupUpdated, Ct);
+        Assert.Equal(renamedLog.CreatedAt, item.LastActivityAt);
+    }
+
+    [Fact(DisplayName = "群組清單：已結束的群組照樣帶個人淨額、已結清與全員結清")]
+    public async Task GetMyGroups_ClosedGroup_StillCarriesBalances()
+    {
+        // Arrange
+        using var context = DbContextTestHelper.CreateContext();
+        await SplitBillSeeder.SeedAsync(context);
+        await CreateService(context).SetGroupClosedAsync(
+            SplitBillSeeder.GroupId, SplitBillSeeder.OwnerUserId, new SetGroupClosedRequest { Closed = true });
+
+        // Act
+        var item = await ReadListItemAsync(context, SplitBillSeeder.OwnerUserId, SplitBillSeeder.GroupId);
+
+        // Assert
+        Assert.NotNull(item.ClosedAt);
+        Assert.Equal((774m, false, false), (item.PersonalNet, item.IsSettled, item.IsEveryoneSettled));
     }
 
     #endregion

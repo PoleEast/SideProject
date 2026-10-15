@@ -17,4 +17,7 @@ public class UpdateGroupRequest
 
     [Description("基準幣")]
     public CurrencyType? BaseCurrency { get; set; }
+
+    [Description("群組圖示")]
+    public GroupIconType? Icon { get; set; }
 }

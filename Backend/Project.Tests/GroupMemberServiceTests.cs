@@ -960,11 +960,12 @@ public class GroupMemberServiceTests
         // Arrange - 小明另有一個群組，想借它的 id 動到日本旅遊裡的阿華
         using var context = DbContextTestHelper.CreateContext();
         await SplitBillSeeder.SeedAsync(context);
-        var groupService = new GroupService(context, NullLogger<GroupService>.Instance);
+        var groupService = new GroupService(context, new SettlementService(context, NullLogger<SettlementService>.Instance), NullLogger<GroupService>.Instance);
         var otherGroup = await groupService.CreateGroupAsync(OwnerUserId, new CreateGroupRequest
         {
             Name = "週五晚餐",
-            BaseCurrency = CurrencyType.TWD
+            BaseCurrency = CurrencyType.TWD,
+            Icon = GroupIconType.Dining
         });
         var service = CreateService(context);
 

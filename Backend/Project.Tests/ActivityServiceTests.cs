@@ -42,7 +42,7 @@ public class ActivityServiceTests
     private static ActivityService CreateService(ApplicationDbContext context) => new(context);
 
     private static GroupService CreateGroupService(ApplicationDbContext context)
-        => new(context, NullLogger<GroupService>.Instance);
+        => new(context, CreateSettlementService(context), NullLogger<GroupService>.Instance);
 
     private static SettlementService CreateSettlementService(ApplicationDbContext context)
         => new(context, NullLogger<SettlementService>.Instance);
@@ -410,7 +410,7 @@ public class ActivityServiceTests
 
         // Act
         var created = await CreateGroupService(context).CreateGroupAsync(
-            AmyUserId, new CreateGroupRequest { Name = "週五晚餐", BaseCurrency = CurrencyType.TWD });
+            AmyUserId, new CreateGroupRequest { Name = "週五晚餐", BaseCurrency = CurrencyType.TWD, Icon = GroupIconType.Dining });
 
         // Assert
         var activity = Assert.Single(await SplitBillActivities.ReadAsync(context, created.Value!.Id, AmyUserId));
@@ -592,7 +592,7 @@ public class ActivityServiceTests
         var groupService = CreateGroupService(context);
 
         // Act
-        var created = await groupService.CreateGroupAsync(AmyUserId, new CreateGroupRequest { Name = "週五晚餐", BaseCurrency = CurrencyType.TWD });
+        var created = await groupService.CreateGroupAsync(AmyUserId, new CreateGroupRequest { Name = "週五晚餐", BaseCurrency = CurrencyType.TWD, Icon = GroupIconType.Dining });
         await groupService.DeleteGroupAsync(created.Value!.Id, AmyUserId);
 
         // Assert - 群組刪除後動態跟著查不到，須略過 query filter 才讀得到

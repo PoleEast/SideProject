@@ -532,7 +532,7 @@ public class InviteServiceTests
         using var context = DbContextTestHelper.CreateContext();
         await SplitBillSeeder.SeedAsync(context);
         await SplitBillSeeder.AddUserAsync(context, AmyUserId, "陳怡安");
-        var groupService = new GroupService(context, NullLogger<GroupService>.Instance);
+        var groupService = new GroupService(context, new SettlementService(context, NullLogger<SettlementService>.Instance), NullLogger<GroupService>.Instance);
         await groupService.ResetInviteCodeAsync(GroupId, SplitBillSeeder.OwnerUserId);
         var service = CreateService(context);
 

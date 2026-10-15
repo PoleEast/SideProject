@@ -191,23 +191,47 @@ public class SettlementService(ApplicationDbContext dbContext, ILogger<Settlemen
     /// </summary>
     /// <param name="group">須已通過存取檢查；捨入位數取自它的基準幣</param>
     /// <returns>捨入到基準幣最小單位後的兩兩淨額；捨入後為 0 的組合不列入</returns>
-    public async Task<List<MemberBalance>> DeriveBalancesAsync(Group group)
+    public async Task<List<MemberBalance>> DeriveBalancesAsync(Group group) => (await DeriveBalancesByGroupAsync([group]))[group.Id];
+
+    /// <summary>
+    /// 從分攤與還款紀錄一次推導多個群組的兩兩淨額
+    /// </summary>
+    /// <remarks>
+    /// 分攤與還款各以一次查詢取回，查詢次數不隨群組數量增加。
+    /// </remarks>
+    /// <param name="groups">須都已通過存取檢查；各自的捨入位數取自各自的基準幣</param>
+    /// <returns>
+    /// 群組 ID 對應該群組兩兩淨額的字典，每個傳入的群組都在其中；
+    /// 兩兩淨額已捨入到基準幣最小單位，捨入後為 0 的組合不列入
+    /// </returns>
+    public async Task<Dictionary<int, List<MemberBalance>>> DeriveBalancesByGroupAsync(IReadOnlyCollection<Group> groups)
     {
+        var groupIds = groups.Select(group => group.Id).ToList();
+
         // 參與者欠付款人「分攤額 × Rate」
-        var shareEntries = await dbContext.ExpenseShares
-            .Where(share => share.Expense.GroupId == group.Id)
-            .Select(share => new BalanceEntry(share.GroupMemberId, share.Expense.PayerId, share.Amount * share.Expense.Rate))
-            .ToListAsync();
+        var shareEntries = await dbContext.ExpenseShares.Where(share => groupIds.Contains(share.Expense.GroupId))
+                                                        .Select(share => new
+                                                        {
+                                                            share.Expense.GroupId,
+                                                            Entry = new BalanceEntry(share.GroupMemberId, share.Expense.PayerId, share.Amount * share.Expense.Rate)
+                                                        })
+                                                        .ToListAsync();
 
         // 還款以反向分錄表達：收款人等同欠了還款人
-        var repaymentEntries = await dbContext.Settlements
-            .Where(settlement => settlement.GroupId == group.Id)
-            .Select(settlement => new BalanceEntry(settlement.ToMemberId, settlement.FromMemberId, settlement.Amount))
-            .ToListAsync();
+        var repaymentEntries = await dbContext.Settlements.Where(settlement => groupIds.Contains(settlement.GroupId))
+                                                          .Select(settlement => new
+                                                          {
+                                                              settlement.GroupId,
+                                                              Entry = new BalanceEntry(settlement.ToMemberId, settlement.FromMemberId, settlement.Amount)
+                                                          })
+                                                          .ToListAsync();
 
-        var balances = SettlementCalculator.CalculateBalances([.. shareEntries, .. repaymentEntries]);
+        var entriesByGroup = shareEntries.Concat(repaymentEntries).ToLookup(item => item.GroupId, item => item.Entry);
 
-        return SettlementCalculator.RoundToUnit(balances, group.BaseCurrency.MinorUnitDecimals());
+        return groups.ToDictionary(
+            group => group.Id,
+            group => SettlementCalculator.RoundToUnit(
+                SettlementCalculator.CalculateBalances(entriesByGroup[group.Id]), group.BaseCurrency.MinorUnitDecimals()));
     }
 
     /// <summary>

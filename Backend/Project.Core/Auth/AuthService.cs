@@ -68,6 +68,26 @@ namespace Project.Core.Auth
             return Result<User>.Success(user);
         }
 
+        /// <summary>
+        /// 查詢使用者自己的資料
+        /// </summary>
+        /// <param name="userId">使用者 ID</param>
+        /// <returns>成功時為使用者自己的資料；使用者不存在回 Unauthorized</returns>
+        public async Task<Result<MeResponse>> GetMeAsync(int userId)
+        {
+            var me = await dbContext.Users.AsNoTracking()
+                                          .Where(user => user.Id == userId)
+                                          .Select(user => new MeResponse { Name = user.Name })
+                                          .FirstOrDefaultAsync();
+
+            if (me == null)
+            {
+                return Result<MeResponse>.Failure(ResultCode.Unauthorized, "使用者不存在");
+            }
+
+            return Result<MeResponse>.Success(me);
+        }
+
         public async Task<bool> IsAccountExistsAsync(string account) => await dbContext.Users.AnyAsync(u => u.Account == account);
 
         private static string HashPassword(string password) => BCrypt.Net.BCrypt.HashPassword(password);

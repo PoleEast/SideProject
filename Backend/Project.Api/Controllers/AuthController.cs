@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Project.Core.Auth;
 using Project.Core.Common;
 using Project.Shared.DTOs.Auth;
 using Project.Shared.Types;
+using System.Security.Claims;
 
 namespace Project.Api.Controllers
 {
@@ -42,6 +44,28 @@ namespace Project.Api.Controllers
             return result.Code switch
             {
                 ResultCode.Conflict => Conflict(result.Message),
+                ResultCode.Unauthorized => Unauthorized(result.Message),
+                _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
+            };
+        }
+
+        /// <summary>
+        /// 取得呼叫者自己的資料
+        /// </summary>
+        [HttpGet("Me")]
+        [Authorize]
+        public async Task<ActionResult<MeResponse>> Me()
+        {
+            if (!int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            var result = await authService.GetMeAsync(userId);
+
+            return result.Code switch
+            {
+                ResultCode.Success => Ok(result.Value),
                 ResultCode.Unauthorized => Unauthorized(result.Message),
                 _ => StatusCode(result.Code.ToHttpStatusCode(), result.Message)
             };

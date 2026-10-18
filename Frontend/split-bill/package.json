@@ -16,13 +16,14 @@
     "format": "oxfmt src/"
   },
   "dependencies": {
-    "@lucide/vue": "^1.56.0",
+    "@lucide/vue": "^1.59.0",
     "@regle/core": "^1.29.5",
     "@regle/rules": "^1.29.5",
     "@tailwindcss/vite": "^4.3.3",
     "@vueuse/core": "^15.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cn": "^0.5.0",
     "pinia": "^4.0.3",
     "reka-ui": "^2.11.0",
     "tailwind-merge": "^3.7.0",

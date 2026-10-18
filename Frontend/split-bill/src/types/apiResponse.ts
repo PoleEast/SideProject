@@ -1,4 +1,4 @@
-export type Result<T> = { ok: true; data: T } | { ok: false; message: string }
+export type Result<T> = { ok: true; data: T } | { ok: false; status: number; message: string }
 
 export interface ValidationErrorResponse {
   type: string

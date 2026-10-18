@@ -1,8 +1,11 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
+import { getMe } from '@/api/auth'
+
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem('token'))
+  const me = ref<string>('')
 
   const isLoggedIn = computed(() => {
     return token.value != null
@@ -15,8 +18,16 @@ export const useAuthStore = defineStore('auth', () => {
 
   const logout = () => {
     token.value = null
+    me.value = ''
     localStorage.removeItem('token')
   }
 
-  return { token, isLoggedIn, logout, setToken }
+  const loadMe = async () => {
+    const result = await getMe()
+    if (result.ok) {
+      me.value = result.data.name
+    }
+  }
+
+  return { token, me, isLoggedIn, logout, setToken, loadMe }
 })

@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
-import { Bed, Plane, ReceiptText, ShoppingBag, TramFront, Utensils } from '@lucide/vue'
-import { Card, CardContent } from '@/components/ui/card'
+
+import { ReceiptText } from '@lucide/vue'
+
 import LoginForm from '@/components/auth/LoginForm.vue'
 import RegisterForm from '@/components/auth/RegisterForm.vue'
+import IconPattern from '@/components/IconPattern.vue'
+import { Card, CardContent } from '@/components/ui/card'
 
 const mode = ref<'login' | 'register'>('login')
 const switchMode = () => {
@@ -25,31 +28,7 @@ const switchMode = () => {
 
 <template>
   <main class="bg-brand flex min-h-dvh flex-col justify-center p-4 relative">
-    <svg class="text-foreground/10 absolute inset-0 size-full" aria-hidden="true">
-      <defs>
-        <pattern id="auth-pattern" width="720" height="416" patternUnits="userSpaceOnUse">
-          <g transform="translate(60 96) rotate(-14)">
-            <ReceiptText :size="88" x="-44" y="-44" stroke-width="1.5" />
-          </g>
-          <g transform="translate(300 112) rotate(16)">
-            <TramFront :size="96" x="-48" y="-48" stroke-width="1.5" />
-          </g>
-          <g transform="translate(540 100) rotate(-10)">
-            <ShoppingBag :size="84" x="-42" y="-42" stroke-width="1.5" />
-          </g>
-          <g transform="translate(180 320) rotate(12)">
-            <Utensils :size="84" x="-42" y="-42" stroke-width="1.5" />
-          </g>
-          <g transform="translate(420 304) rotate(10)">
-            <Bed :size="92" x="-46" y="-46" stroke-width="1.5" />
-          </g>
-          <g transform="translate(660 316) rotate(-18)">
-            <Plane :size="88" x="-44" y="-44" stroke-width="1.5" />
-          </g>
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#auth-pattern)" />
-    </svg>
+    <IconPattern />
     <div class="relative mx-auto flex w-full max-w-sm flex-col gap-6">
       <!-- header -->
       <header class="flex flex-col gap-4 px-2" style="view-transition-name: auth-header">

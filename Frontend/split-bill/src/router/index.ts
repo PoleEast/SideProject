@@ -19,6 +19,11 @@ const router = createRouter({
       component: () => import('@/views/QuickExpenseView.vue'),
     },
     {
+      path: '/groups/closed',
+      name: 'closed-groups',
+      component: () => import('@/views/ClosedGroupsView.vue'),
+    },
+    {
       path: '/groups/:groupId',
       name: 'group',
       component: () => import('@/views/GroupView.vue'),

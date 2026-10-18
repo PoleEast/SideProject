@@ -1,5 +1,7 @@
 import type { Result, ValidationErrorResponse } from '@/types/apiResponse'
-import type { AuthResponse, LoginRequest, RegisterRequest } from '@/types/auth'
+import type { AuthResponse, LoginRequest, MeResponse, RegisterRequest } from '@/types/auth'
+
+import { request } from './helper'
 
 const BASE_URL = import.meta.env.VITE_API_URL
 const API_URL = `${BASE_URL}/auth`
@@ -27,7 +29,7 @@ export const login = async (data: LoginRequest): Promise<Result<AuthResponse>> =
         message = '伺服器發生無法預期狀況'
     }
 
-    return { ok: false, message }
+    return { ok: false, status: response.status, message }
   }
 
   return { ok: true, data: await response.json() }
@@ -56,8 +58,10 @@ export const register = async (data: RegisterRequest): Promise<Result<AuthRespon
         message = '伺服器發生無法預期狀況'
     }
 
-    return { ok: false, message }
+    return { ok: false, status: response.status, message }
   }
 
   return { ok: true, data: await response.json() }
 }
+
+export const getMe = () => request<MeResponse>('/auth/me', 'GET')

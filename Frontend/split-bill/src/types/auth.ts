@@ -12,3 +12,7 @@ export interface RegisterRequest {
 export interface AuthResponse {
   token: string
 }
+
+export interface MeResponse {
+  name: string
+}

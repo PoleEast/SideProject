@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import { register } from '@/api/auth'
-import { Button } from '@/components/ui/button'
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldError } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { CircleAlert } from '@lucide/vue'
-import { Spinner } from '@/components/ui/spinner'
-import { useAuthStore } from '@/stores/auth'
 import { reactive, ref } from 'vue'
+
+import { CircleAlert } from '@lucide/vue'
+
 import { useRegle } from '@regle/core'
 import { maxLength, minLength, required, withMessage } from '@regle/rules'
+
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
+
+import { register } from '@/api/auth'
+import { useAuthStore } from '@/stores/auth'
 
 const emit = defineEmits<{ switch: [] }>()
 
@@ -47,7 +51,9 @@ const { r$ } = useRegle(
 
 const handleSubmit = async () => {
   const { valid } = await r$.$validate()
-  if (!valid) return
+  if (!valid) {
+    return
+  }
 
   isSubmitting.value = true
   errorMessage.value = ''

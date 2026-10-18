@@ -37,7 +37,9 @@ const { r$ } = useRegle(
 
 const handleSubmit = async () => {
   const { valid } = await r$.$validate()
-  if (!valid) return
+  if (!valid) {
+    return
+  }
 
   isSubmitting.value = true
   errorMessage.value = ''

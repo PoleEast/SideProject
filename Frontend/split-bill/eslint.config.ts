@@ -16,7 +16,8 @@ export default defineConfigWithVueTs(
     files: ['**/*.{vue,ts,mts,tsx}'],
   },
 
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
+  // shadcn-vue 產生的元件維持原樣，重新產生時才不會跟手動修正互相覆蓋
+  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**', 'src/components/ui/**']),
 
   ...pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,

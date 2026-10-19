@@ -14,6 +14,7 @@ const { group } = defineProps<{
 
 const emit = defineEmits<{
   close: []
+  reopen: []
 }>()
 
 const icon = computed(() => groupIcons[group.icon])
@@ -29,8 +30,16 @@ const balanceLabel = computed(() => {
   return '收付相抵'
 })
 const balanceAmount = computed(() => formatMoney(group.baseCurrency, Math.abs(group.personalNet)))
+const isClosed = computed(() => group.closedAt !== null)
 const subtitle = computed(() => {
   const members = `${group.activeMemberCount} 位成員`
+  // 已結束的群組右側讓給「重新開啟」，金額改寫在副標
+  if (isClosed.value && group.personalNet !== 0) {
+    return `${balanceLabel.value} ${balanceAmount.value}`
+  }
+  if (isClosed.value && group.isSettled && !group.isEveryoneSettled) {
+    return `${members} · 還有人沒結清`
+  }
   if (group.isSettled) {
     return `${members} · 已結清`
   }
@@ -50,21 +59,30 @@ const subtitle = computed(() => {
       <IconTile :icon="icon.icon" :color="icon.color" :label="icon.label" />
       <span class="flex min-w-0 flex-1 flex-col">
         <span class="truncate text-base font-semibold">{{ group.name }}</span>
-        <span class="text-muted-foreground text-sm">{{ subtitle }}</span>
+        <span class="text-muted-foreground truncate text-sm">{{ subtitle }}</span>
       </span>
-      <span v-if="balanceLabel" class="flex shrink-0 flex-col items-end">
+      <span v-if="balanceLabel && !isClosed" class="flex shrink-0 flex-col items-end">
         <span class="text-muted-foreground text-xs">{{ balanceLabel }}</span>
         <span class="text-base font-bold whitespace-nowrap tabular-nums">{{ balanceAmount }}</span>
       </span>
     </RouterLink>
     <Button
-      v-if="group.isEveryoneSettled"
+      v-if="!isClosed && group.isEveryoneSettled"
       type="button"
       variant="soft"
       class="h-10 rounded-sm px-4 text-base font-semibold"
       @click="emit('close')"
     >
       結束
+    </Button>
+    <Button
+      v-else-if="isClosed"
+      type="button"
+      variant="soft"
+      class="h-10 rounded-sm px-4 text-base font-semibold"
+      @click="emit('reopen')"
+    >
+      重新開啟
     </Button>
   </div>
 </template>

@@ -1,4 +1,4 @@
-// 建立首頁群組清單的測試資料：七個群組，涵蓋首頁每一種顯示狀態
+// 建立首頁與已結束頁的測試資料：九個群組，涵蓋首頁每一種顯示狀態與已結束頁的「重新開啟」
 // 用法（在 Frontend/split-bill 底下）：node scripts/seed-home-groups.mjs <token>
 // 只呼叫本機後端；要換位址時設定環境變數 API_URL
 
@@ -134,21 +134,51 @@ const scenarios = [
     expenses: [],
     closed: true,
   },
+  {
+    expected: '已結束但你還要付：副標「你要付 TWD 200」，右邊是「重新開啟」',
+    group: { name: '花蓮連假', icon: 'Travel', baseCurrency: 'TWD' },
+    members: ['小安'],
+    expenses: [
+      {
+        name: '停車費',
+        category: 'Transport',
+        amount: 400,
+        payer: '小安',
+        shares: { 我: 200, 小安: 200 },
+      },
+    ],
+    closed: true,
+  },
+  {
+    expected:
+      '已結束、你已結清但阿華欠小明 TWD 1,000：副標「3 位成員 · 還有人沒結清」，右邊是「重新開啟」',
+    group: { name: '中秋烤肉', icon: 'Party', baseCurrency: 'TWD' },
+    members: ['阿華', '小明'],
+    expenses: [
+      {
+        name: '烤肉食材',
+        category: 'Food',
+        amount: 2000,
+        payer: '小明',
+        shares: { 阿華: 1000, 小明: 1000 },
+      },
+    ],
+    closed: true,
+  },
 ]
 
+// 同名的群組視為之前跑過，略過不重建，之後新增的情境才能單獨補上
 const existingGroups = await callApi('GET', '/group')
 const existingNames = new Set(existingGroups.map((group) => group.name))
-const duplicatedNames = scenarios
+const skippedNames = scenarios
   .map((scenario) => scenario.group.name)
   .filter((name) => existingNames.has(name))
 
-if (duplicatedNames.length > 0) {
-  console.error(`已經有同名的群組：${duplicatedNames.join('、')}`)
-  console.error('看起來之前跑過了；要重跑請先刪掉這些群組')
-  process.exit(1)
+if (skippedNames.length > 0) {
+  console.log(`略過已經存在的群組：${skippedNames.join('、')}`)
 }
 
-for (const scenario of scenarios) {
+for (const scenario of scenarios.filter((scenario) => !existingNames.has(scenario.group.name))) {
   const group = await callApi('POST', '/group', { ...scenario.group, description: '' })
 
   const owners = await callApi('GET', `/group/${group.id}/members`)
@@ -186,3 +216,4 @@ for (const scenario of scenarios) {
 }
 
 console.log('完成。首頁進行中的順序應為：週末火鍋、紐約出差、室友帳、東京旅行、生日派對、羽球團')
+console.log('已結束頁最上面兩個應為：中秋烤肉、花蓮連假')

@@ -37,7 +37,7 @@ const subtitle = computed(() => {
   if (isClosed.value && group.personalNet !== 0) {
     return `${balanceLabel.value} ${balanceAmount.value}`
   }
-  if (isClosed.value && group.isSettled && !group.isEveryoneSettled) {
+  if (group.isSettled && !group.isEveryoneSettled) {
     return `${members} · 還有人沒結清`
   }
   if (group.isSettled) {

@@ -2,6 +2,9 @@
 import { watch } from 'vue'
 import { RouterView } from 'vue-router'
 
+import 'vue-sonner/style.css'
+
+import { Toaster } from './components/ui/sonner'
 import { useAuthStore } from './stores/auth'
 import AuthView from './views/AuthView.vue'
 
@@ -23,6 +26,7 @@ watch(
 <template>
   <RouterView v-if="authStore.isLoggedIn" />
   <AuthView v-else />
+  <Toaster />
 </template>
 
 <style scoped></style>

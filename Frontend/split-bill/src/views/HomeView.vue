@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import { Archive, ChevronRight, Plus, ReceiptText, Zap } from '@lucide/vue'
 
-import { getMyGroups } from '@/api/group'
 import AccountMenu from '@/components/AccountMenu.vue'
 import CloseGroupDialog from '@/components/CloseGroupDialog.vue'
 import GroupListEmpty from '@/components/GroupListEmpty.vue'
@@ -14,18 +13,16 @@ import GroupRow from '@/components/GroupRow.vue'
 import IconPattern from '@/components/IconPattern.vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useMyGroups } from '@/composables/useMyGroups'
 import { sortForHome } from '@/lib/homeGroups'
 import { useAuthStore } from '@/stores/auth'
 import type { GroupListItemResponse, GroupResponse } from '@/types/group'
 
 const authStore = useAuthStore()
+const { groups, loadGroups, loadErrorMessage, loadState } = useMyGroups()
 
-const groups = ref<GroupListItemResponse[]>([])
 const isCloseDialogOpen = ref(false)
 const closingGroup = ref<GroupListItemResponse | null>(null)
-
-const loadState = ref<'loading' | 'error' | 'ready'>('loading')
-const loadErrorMessage = ref<string>('')
 
 const activeGroups = computed(() =>
   sortForHome(groups.value.filter((group) => group.closedAt === null)),
@@ -42,22 +39,6 @@ const handleClosed = (updated: GroupResponse) => {
     closingGroup.value.closedAt = updated.closedAt
   }
 }
-
-const loadGroups = async () => {
-  loadState.value = 'loading'
-  const result = await getMyGroups()
-
-  if (!result.ok) {
-    loadErrorMessage.value = result.message
-    loadState.value = 'error'
-    return
-  }
-
-  groups.value = result.data
-  loadState.value = 'ready'
-}
-
-onMounted(loadGroups)
 </script>
 
 <template>

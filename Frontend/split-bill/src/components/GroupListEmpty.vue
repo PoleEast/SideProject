@@ -65,7 +65,7 @@ const tiles = [
     <EmptyContent>
       <p class="flex items-center gap-2 text-sm font-semibold">
         <span
-          class="bg-brand text-primary flex size-6 items-center justify-center rounded-full"
+          class="bg-brand text-stone-900 flex size-6 items-center justify-center rounded-full"
           aria-hidden="true"
         >
           <ArrowUp class="size-3.5" />

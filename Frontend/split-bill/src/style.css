@@ -12,6 +12,12 @@
   --text-display--line-height: 3rem;
   --shadow-card: 0 1px 2px rgb(28 25 23 / 0.06), 0 6px 16px rgb(28 25 23 / 0.06);
   --color-avatar-me: #ffd166;
+  --color-avatar-mint: #8fe3cf;
+  --color-avatar-lime: #b7e778;
+  --color-avatar-lavender: #c9b6ff;
+  --color-avatar-pink: #ffb3c7;
+  --color-avatar-sky: #9fd4ff;
+  --color-avatar-peach: #ffbe98;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

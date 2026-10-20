@@ -9,6 +9,8 @@ import { request } from './helper'
 
 export const getMyGroups = () => request<GroupListItemResponse[]>('/group', 'GET')
 
+export const getGroup = (groupId: number) => request<GroupResponse>(`/group/${groupId}`, 'GET')
+
 export const setGroupClosed = (groupId: number, requestBody: SetGroupClosedRequest) =>
   request<GroupResponse>(`/group/${groupId}/closed`, 'PUT', requestBody)
 

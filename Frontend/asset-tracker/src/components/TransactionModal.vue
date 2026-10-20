@@ -250,7 +250,7 @@ watch(
           <n-input
             v-model:value="formData.stockCode"
             placeholder="例：2330、AAPL"
-            :maxlength="5"
+            :maxlength="6"
             @input="formData.stockCode = formData.stockCode.trim().toUpperCase()"
           />
         </n-form-item>

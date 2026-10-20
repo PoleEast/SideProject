@@ -6,9 +6,9 @@ import { Archive, ArrowLeft, ChevronLeft } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 
 import { setGroupClosed } from '@/api/group'
-import GroupListError from '@/components/GroupListError.vue'
-import GroupListSkeleton from '@/components/GroupListSkeleton.vue'
-import GroupRow from '@/components/GroupRow.vue'
+import GroupLoadError from '@/components/group/GroupLoadError.vue'
+import GroupListSkeleton from '@/components/group/GroupListSkeleton.vue'
+import GroupRow from '@/components/group/GroupRow.vue'
 import { Button } from '@/components/ui/button'
 import {
   Empty,
@@ -63,7 +63,7 @@ const reopenGroup = async (group: GroupListItemResponse) => {
 
     <main class="flex flex-col px-4 pt-1 pb-4">
       <GroupListSkeleton v-if="loadState === 'loading'" />
-      <GroupListError
+      <GroupLoadError
         v-else-if="loadState === 'error'"
         :message="loadErrorMessage"
         @retry="loadGroups"

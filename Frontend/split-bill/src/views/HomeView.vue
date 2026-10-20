@@ -4,14 +4,14 @@ import { RouterLink } from 'vue-router'
 
 import { Archive, ChevronRight, Plus, ReceiptText, Zap } from '@lucide/vue'
 
-import AccountMenu from '@/components/AccountMenu.vue'
-import CloseGroupDialog from '@/components/CloseGroupDialog.vue'
-import CreateGroupDrawer from '@/components/CreateGroupDrawer.vue'
-import GroupListEmpty from '@/components/GroupListEmpty.vue'
-import GroupListError from '@/components/GroupListError.vue'
-import GroupListSkeleton from '@/components/GroupListSkeleton.vue'
-import GroupRow from '@/components/GroupRow.vue'
-import IconPattern from '@/components/IconPattern.vue'
+import AccountMenu from '@/components/auth/AccountMenu.vue'
+import CloseGroupDialog from '@/components/group/CloseGroupDialog.vue'
+import CreateGroupDrawer from '@/components/group/CreateGroupDrawer.vue'
+import GroupListEmpty from '@/components/group/GroupListEmpty.vue'
+import GroupLoadError from '@/components/group/GroupLoadError.vue'
+import GroupListSkeleton from '@/components/group/GroupListSkeleton.vue'
+import GroupRow from '@/components/group/GroupRow.vue'
+import IconPattern from '@/components/icon/IconPattern.vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useMyGroups } from '@/composables/useMyGroups'
@@ -97,7 +97,7 @@ const handleClosed = (updated: GroupResponse) => {
           </span>
         </div>
         <GroupListSkeleton v-if="loadState === 'loading'" />
-        <GroupListError
+        <GroupLoadError
           v-else-if="loadState === 'error'"
           :message="loadErrorMessage"
           @retry="loadGroups"

@@ -5,7 +5,7 @@ import { ReceiptText } from '@lucide/vue'
 
 import LoginForm from '@/components/auth/LoginForm.vue'
 import RegisterForm from '@/components/auth/RegisterForm.vue'
-import IconPattern from '@/components/IconPattern.vue'
+import IconPattern from '@/components/icon/IconPattern.vue'
 import { Card, CardContent } from '@/components/ui/card'
 
 const mode = ref<'login' | 'register'>('login')

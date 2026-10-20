@@ -17,11 +17,11 @@ import { getExpenses } from '@/api/expense'
 import { getGroup } from '@/api/group'
 import { getGroupMembers } from '@/api/groupMember'
 import { getBalances } from '@/api/settlement'
-import ExpenseListEmpty from '@/components/ExpenseListEmpty.vue'
-import ExpenseRow from '@/components/ExpenseRow.vue'
-import GroupDetailSkeleton from '@/components/GroupDetailSkeleton.vue'
-import GroupListError from '@/components/GroupListError.vue'
-import IconPattern from '@/components/IconPattern.vue'
+import ExpenseListEmpty from '@/components/expense/ExpenseListEmpty.vue'
+import ExpenseRow from '@/components/expense/ExpenseRow.vue'
+import GroupDetailSkeleton from '@/components/group/GroupDetailSkeleton.vue'
+import GroupLoadError from '@/components/group/GroupLoadError.vue'
+import IconPattern from '@/components/icon/IconPattern.vue'
 import { Button } from '@/components/ui/button'
 import {
   Empty,
@@ -118,7 +118,7 @@ onMounted(loadGroup)
 
     <GroupDetailSkeleton v-if="loadState === 'loading'" :group-id="groupId" />
     <main v-else-if="loadState === 'error'" class="px-4 pt-1 pb-4">
-      <GroupListError :message="loadErrorMessage" @retry="loadGroup" />
+      <GroupLoadError :message="loadErrorMessage" @retry="loadGroup" />
     </main>
     <main v-else-if="loadState === 'notFound'" class="px-4 pt-1 pb-4">
       <Empty>

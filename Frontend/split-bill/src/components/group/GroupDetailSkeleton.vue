@@ -3,7 +3,7 @@ import { RouterLink } from 'vue-router'
 
 import { ArrowRightLeft, ChevronRight, UserPlus } from '@lucide/vue'
 
-import IconPattern from '@/components/IconPattern.vue'
+import IconPattern from '@/components/icon/IconPattern.vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 

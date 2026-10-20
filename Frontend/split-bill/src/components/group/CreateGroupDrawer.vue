@@ -10,7 +10,7 @@ import { useRegle } from '@regle/core'
 import { maxLength, required, withMessage } from '@regle/rules'
 
 import { createGroup } from '@/api/group'
-import IconTile from '@/components/IconTile.vue'
+import IconTile from '@/components/icon/IconTile.vue'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {

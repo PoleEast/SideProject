@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 
-import IconTile from '@/components/IconTile.vue'
+import IconTile from '@/components/icon/IconTile.vue'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { getAvatarColorClass, getInitial } from '@/lib/avatar'
 import { expenseCategories } from '@/lib/expenseCategory'

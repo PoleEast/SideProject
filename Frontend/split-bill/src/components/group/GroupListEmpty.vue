@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ArrowUp } from '@lucide/vue'
 
-import IconStack from '@/components/IconStack.vue'
+import IconStack from '@/components/icon/IconStack.vue'
 import {
   Empty,
   EmptyContent,

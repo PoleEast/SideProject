@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 
-import IconTile from '@/components/IconTile.vue'
+import IconTile from '@/components/icon/IconTile.vue'
 import { Button } from '@/components/ui/button'
 import { groupIcons } from '@/lib/groupIcon'
 import { formatMoney } from '@/lib/money'

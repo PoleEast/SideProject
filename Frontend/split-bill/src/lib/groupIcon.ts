@@ -1,5 +1,3 @@
-import type { Component } from 'vue'
-
 import {
   House,
   PartyPopper,
@@ -11,13 +9,10 @@ import {
   Volleyball,
 } from '@lucide/vue'
 
-import type { TileColor } from '@/lib/iconTile'
+import type { TileIcon } from '@/lib/iconTile'
 import type { GroupIconType } from '@/types/group'
 
-export const groupIcons: Record<
-  GroupIconType,
-  { label: string; icon: Component; color: TileColor }
-> = {
+export const groupIcons: Record<GroupIconType, TileIcon> = {
   Travel: { label: '旅行', icon: Plane, color: 'blue' },
   Home: { label: '住家', icon: House, color: 'violet' },
   Dining: { label: '聚餐', icon: Utensils, color: 'amber' },

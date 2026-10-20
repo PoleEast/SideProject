@@ -1,3 +1,5 @@
+import type { Component } from 'vue'
+
 export type TileColor = 'amber' | 'blue' | 'violet' | 'cyan' | 'lime' | 'orange' | 'pink' | 'stone'
 
 export const tileColorClasses: Record<TileColor, string> = {
@@ -9,4 +11,10 @@ export const tileColorClasses: Record<TileColor, string> = {
   orange: 'bg-orange-100 text-orange-700 dark:bg-orange-400/18 dark:text-orange-300',
   pink: 'bg-pink-100 text-pink-700 dark:bg-pink-400/18 dark:text-pink-300',
   stone: 'bg-stone-100 text-stone-600 dark:bg-stone-400/16 dark:text-stone-300',
+}
+
+export interface TileIcon {
+  label: string
+  icon: Component
+  color: TileColor
 }

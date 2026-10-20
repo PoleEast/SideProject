@@ -6,6 +6,7 @@ import { Archive, ChevronRight, Plus, ReceiptText, Zap } from '@lucide/vue'
 
 import AccountMenu from '@/components/AccountMenu.vue'
 import CloseGroupDialog from '@/components/CloseGroupDialog.vue'
+import CreateGroupDrawer from '@/components/CreateGroupDrawer.vue'
 import GroupListEmpty from '@/components/GroupListEmpty.vue'
 import GroupListError from '@/components/GroupListError.vue'
 import GroupListSkeleton from '@/components/GroupListSkeleton.vue'
@@ -23,6 +24,7 @@ const { groups, loadGroups, loadErrorMessage, loadState } = useMyGroups()
 
 const isCloseDialogOpen = ref(false)
 const closingGroup = ref<GroupListItemResponse | null>(null)
+const isCreateDrawerOpen = ref(false)
 
 const activeGroups = computed(() =>
   sortForHome(groups.value.filter((group) => group.closedAt === null)),
@@ -59,6 +61,8 @@ const handleClosed = (updated: GroupResponse) => {
       @closed="handleClosed"
     />
 
+    <CreateGroupDrawer v-model:open="isCreateDrawerOpen" />
+
     <main class="flex flex-col gap-5 px-4 pt-1 pb-4">
       <section
         class="bg-brand dark:bg-card relative flex flex-col gap-4 overflow-hidden rounded-xl p-6"
@@ -75,7 +79,7 @@ const handleClosed = (updated: GroupResponse) => {
               快速記一筆
             </RouterLink>
           </Button>
-          <Button type="button" variant="secondary" size="md">
+          <Button type="button" variant="secondary" size="md" @click="isCreateDrawerOpen = true">
             <Plus class="size-4.5" aria-hidden="true" />
             建立群組
           </Button>

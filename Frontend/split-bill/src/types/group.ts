@@ -37,3 +37,10 @@ export interface GroupResponse {
 export interface SetGroupClosedRequest {
   closed: boolean
 }
+
+export interface CreateGroupRequest {
+  name: string
+  description: string
+  baseCurrency: CurrencyType
+  icon: GroupIconType
+}

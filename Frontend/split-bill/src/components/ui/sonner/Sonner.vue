@@ -28,7 +28,7 @@ const props = defineProps<ToasterProps>()
     }"
   >
     <template #success-icon>
-      <CircleCheckIcon class="size-4" />
+      <CircleCheckIcon class="text-brand size-5" />
     </template>
     <template #info-icon>
       <InfoIcon class="size-4" />

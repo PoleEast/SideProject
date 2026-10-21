@@ -16,3 +16,6 @@ export const setGroupClosed = (groupId: number, requestBody: SetGroupClosedReque
 
 export const createGroup = (requestBody: CreateGroupRequest) =>
   request<GroupResponse>('/group', 'POST', requestBody)
+
+export const resetInviteCode = (groupId: number) =>
+  request<GroupResponse>(`/group/${groupId}/invite-code`, 'POST')

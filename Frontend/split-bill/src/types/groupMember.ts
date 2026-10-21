@@ -6,3 +6,11 @@ export interface GroupMemberResponse {
   isOwner: boolean
   isBound: boolean
 }
+
+export interface AddGroupMembersRequest {
+  displayNames: string[]
+}
+
+export interface RenameGroupMemberRequest {
+  displayName: string
+}

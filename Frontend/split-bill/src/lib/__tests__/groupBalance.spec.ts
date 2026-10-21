@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { getPersonalBalance } from '@/lib/groupBalance'
+import { getPersonalBalance, getUnsettledCounterpartIds } from '@/lib/groupBalance'
 import type { MemberBalance } from '@/types/settlement'
 
 const myMemberId = 1
@@ -76,5 +76,29 @@ describe('getPersonalBalance', () => {
     ]
 
     expect(getPersonalBalance(balances, myMemberId, 'USD').personalNet).toBe(0)
+  })
+})
+
+describe('getUnsettledCounterpartIds', () => {
+  it('不論欠錢或收錢，對方都算還有帳沒清', () => {
+    const balances = [makeBalance(2, 4, 300), makeBalance(5, 2, 120)]
+
+    expect(getUnsettledCounterpartIds(balances, 2)).toEqual([4, 5])
+  })
+
+  it('不列出跟這位成員無關的兩兩淨額', () => {
+    const balances = [makeBalance(2, 4, 300), makeBalance(3, 5, 9999)]
+
+    expect(getUnsettledCounterpartIds(balances, 2)).toEqual([4])
+  })
+
+  it('收付相抵仍算還有帳沒清，兩位對象都要列出', () => {
+    const balances = [makeBalance(2, 4, 600), makeBalance(3, 2, 600)]
+
+    expect(getUnsettledCounterpartIds(balances, 2)).toEqual([4, 3])
+  })
+
+  it('沒有任何一組牽涉到這位成員時是空陣列', () => {
+    expect(getUnsettledCounterpartIds([makeBalance(3, 5, 9999)], 2)).toEqual([])
   })
 })

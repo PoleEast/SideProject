@@ -22,3 +22,12 @@ export const getPersonalBalance = (
 
   return { personalNet: netInMinorUnits / scale, isSettled: myBalances.length === 0 }
 }
+
+export const getUnsettledCounterpartIds = (balances: MemberBalance[], memberId: number): number[] =>
+  balances
+    .filter(
+      (balance) => balance.debtorMemberId === memberId || balance.creditorMemberId === memberId,
+    )
+    .map((balance) =>
+      balance.debtorMemberId === memberId ? balance.creditorMemberId : balance.debtorMemberId,
+    )

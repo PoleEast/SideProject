@@ -67,9 +67,9 @@ watch(open, (isOpen) => {
       <p v-if="errorMessage" class="text-destructive text-sm">{{ errorMessage }}</p>
       <DialogFooter>
         <DialogClose as-child>
-          <Button type="button" variant="outline" :disabled="isClosing">取消</Button>
+          <Button type="button" size="md" variant="outline" :disabled="isClosing">取消</Button>
         </DialogClose>
-        <Button type="button" :disabled="isClosing" @click="confirm">
+        <Button type="button" size="md" :disabled="isClosing" @click="confirm">
           <Spinner v-if="isClosing" />
           {{ isClosing ? '結束中…' : '結束' }}
         </Button>

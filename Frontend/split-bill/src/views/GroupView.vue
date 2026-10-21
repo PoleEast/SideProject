@@ -2,16 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
-import {
-  ArrowLeft,
-  ArrowRightLeft,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  SearchX,
-  UserPlus,
-  Users,
-} from '@lucide/vue'
+import { ArrowRightLeft, ChevronLeft, ChevronRight, Plus, UserPlus, Users } from '@lucide/vue'
 
 import { getExpenses } from '@/api/expense'
 import { getGroup } from '@/api/group'
@@ -21,16 +12,9 @@ import ExpenseListEmpty from '@/components/expense/ExpenseListEmpty.vue'
 import ExpenseRow from '@/components/expense/ExpenseRow.vue'
 import GroupDetailSkeleton from '@/components/group/GroupDetailSkeleton.vue'
 import GroupLoadError from '@/components/group/GroupLoadError.vue'
+import GroupNotFound from '@/components/group/GroupNotFound.vue'
 import IconPattern from '@/components/icon/IconPattern.vue'
 import { Button } from '@/components/ui/button'
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getPersonalBalance } from '@/lib/groupBalance'
 import { formatMoney } from '@/lib/money'
@@ -121,23 +105,7 @@ onMounted(loadGroup)
       <GroupLoadError :message="loadErrorMessage" @retry="loadGroup" />
     </main>
     <main v-else-if="loadState === 'notFound'" class="px-4 pt-1 pb-4">
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon" aria-hidden="true">
-            <SearchX />
-          </EmptyMedia>
-          <EmptyTitle>找不到這個群組</EmptyTitle>
-          <EmptyDescription>可能已經被刪除，或你不是這個群組的成員</EmptyDescription>
-        </EmptyHeader>
-        <EmptyContent>
-          <Button as-child size="md">
-            <RouterLink :to="{ name: 'home' }">
-              <ArrowLeft class="size-4.5" aria-hidden="true" />
-              回首頁
-            </RouterLink>
-          </Button>
-        </EmptyContent>
-      </Empty>
+      <GroupNotFound />
     </main>
     <template v-else-if="group && myMember">
       <main class="flex flex-1 flex-col gap-5 px-4 pt-1 pb-4">

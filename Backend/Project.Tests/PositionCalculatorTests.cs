@@ -471,10 +471,10 @@ public class PositionCalculatorTests
         Assert.Equal(StockMarketType.US, pnl.StockMarket); // 市場類型來自賣出交易
     }
 
-    [Fact(DisplayName = "已實現損益：買入價高於賣出價，損益為負（亏損）")]
+    [Fact(DisplayName = "已實現損益：買入價高於賣出價，損益為負（虧損）")]
     public void CalculateRealizedPnL_SellPriceLowerThanBuyPrice_ReturnsLoss()
     {
-        // Arrange - 買入 100 股 @ $20，賣出 100 股 @ $15，每股亏損 5 元
+        // Arrange - 買入 100 股 @ $20，賣出 100 股 @ $15，每股虧損 5 元
         var transactions = new TransactionBuilder()
             .Buy(100, 20m, new DateOnly(2024, 1, 1))
             .Sell(100, 15m, new DateOnly(2024, 1, 2))
@@ -490,7 +490,7 @@ public class PositionCalculatorTests
         var pnl = result.Value![0];
         Assert.Equal(20m, pnl.BuyPrice);
         Assert.Equal(15m, pnl.SellPrice);
-        Assert.True(pnl.BuyPrice > pnl.SellPrice, "買入價應大於賣出價，確認為亏損場景");
+        Assert.True(pnl.BuyPrice > pnl.SellPrice, "買入價應大於賣出價，確認為虧損場景");
         Assert.Equal(-500m, (pnl.SellPrice - pnl.BuyPrice) * pnl.SellQuantity); // 總損益 = -500
     }
 

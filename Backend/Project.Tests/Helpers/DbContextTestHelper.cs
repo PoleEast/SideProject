@@ -5,7 +5,7 @@ using Project.Data.Model;
 namespace Project.Tests.Helpers;
 
 /// <summary>
-/// InMemory 資料庫測試辅助類別
+/// InMemory 資料庫測試輔助類別
 /// 每次調用 CreateContext() 都會建立獨立的 InMemory 實例，確保測試互不干涉
 /// 後續其他 Service 測試可以直接繼承此類別來復用基礎設定
 /// </summary>

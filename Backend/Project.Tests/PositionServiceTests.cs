@@ -72,7 +72,7 @@ public class PositionServiceTests
             .Buy(50, 150m, new DateOnly(2024, 1, 1))
             .Build();
 
-        // TransactionBuilder 各自從 Id=1 開始計數，插入前需手動修正避免主鍵冲突
+        // TransactionBuilder 各自從 Id=1 開始計數，插入前需手動修正避免主鍵衝突
         usTransactions[0].Id = 100;
 
         await DbContextTestHelper.SeedTransactionsAsync(context, 1, twTransactions);
